@@ -12,7 +12,7 @@ class QuestionResult {
     this.answer = '',
     this.solution = '',
     this.confidence = 0.0,
-  });
+  }) : knowledgePoints = knowledgePoints ?? const [];
 
   factory QuestionResult.fromJson(Map<String, dynamic> json) =>
       QuestionResult(

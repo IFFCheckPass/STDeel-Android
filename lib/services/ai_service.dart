@@ -188,7 +188,14 @@ class AiService {
       return;
     }
 
-    final stream = response.data!.stream;
+    if (response.data == null) {
+      controller.add(const AiFailed('响应体为空'));
+      return;
+    }
+
+    final stream = response.data!.stream.transform(
+      Utf8Decoder(allowMalformed: true),
+    );
     final buffer = StringBuffer();
     bool thinkingDetected = false;
     bool answeringStarted = false;
@@ -217,7 +224,7 @@ class AiService {
       await for (final chunk in stream) {
         if (completer.isCompleted) break;
 
-        buffer.write(utf8.decode(chunk, allowMalformed: true));
+        buffer.write(chunk);
 
         // 按行拆分，最后一行可能不完整，需保留在 buffer
         final raw = buffer.toString();

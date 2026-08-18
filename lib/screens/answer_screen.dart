@@ -143,6 +143,7 @@ class AnswerScreen extends StatelessWidget {
       questionId: q.id,
       questionText: q.content,
       combo1ApiKey: settings.apiKeyCombo1,
+      combo2ApiKey: settings.apiKeyCombo2,
       thinkTimeout: settings.thinkTimeout,
     );
   }
@@ -154,6 +155,7 @@ class AnswerScreen extends StatelessWidget {
       questionId: q.id,
       questionText: q.content,
       combo1ApiKey: settings.apiKeyCombo1,
+      combo2ApiKey: settings.apiKeyCombo2,
       thinkTimeout: settings.thinkTimeout,
     );
   }

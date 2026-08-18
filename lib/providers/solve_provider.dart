@@ -153,10 +153,10 @@ class SolveProvider extends ChangeNotifier {
           result: result,
           currentModel: event.result.aiModel,
         );
-        // 持久化到 drift
-        _persistResult(result);
-        // 异步上传后端
-        _sync.uploadSolveResult(result);
+        // 持久化到 drift，然后异步上传后端并标记已同步
+        _persistResult(result).then((ids) {
+          _sync.uploadSolveResult(result, recordIds: ids);
+        });
         // 通知
         _notifier.notifySuccess(
           questionCount: result.questions.length,
@@ -175,10 +175,11 @@ class SolveProvider extends ChangeNotifier {
     await sub.cancel();
   }
 
-  /// 写入 drift（每题一行）
-  Future<void> _persistResult(SolveResult result) async {
+  /// 写入 drift（每题一行），返回插入的记录 ID 列表
+  Future<List<int>> _persistResult(SolveResult result) async {
+    final ids = <int>[];
     for (final q in result.questions) {
-      await _db.solveRecordDao.insert(
+      final id = await _db.solveRecordDao.insert(
         SolveRecordsCompanion.insert(
           questionText: q.content,
           answer: Value(q.answer),
@@ -192,7 +193,9 @@ class SolveProvider extends ChangeNotifier {
           imagePath: Value(result.imagePath),
         ),
       );
+      ids.add(id);
     }
+    return ids;
   }
 
   /// 标准答案库三层匹配：
@@ -276,6 +279,7 @@ class SolveProvider extends ChangeNotifier {
     required int questionId,
     required String questionText,
     required String? combo1ApiKey,
+    String? combo2ApiKey,
     int thinkTimeout = 15,
   }) async {
     _state = SolveUiState(
@@ -284,7 +288,7 @@ class SolveProvider extends ChangeNotifier {
     );
     notifyListeners();
     final combo1 = AiConfig.combo1(combo1ApiKey ?? '');
-    final combo2 = AiConfig.combo2('');
+    final combo2 = AiConfig.combo2(combo2ApiKey ?? '');
     final sub = _failover
         .solve(
           combo1: combo1,
@@ -293,13 +297,42 @@ class SolveProvider extends ChangeNotifier {
           userPrompt: '请重新解答以下题目，给出新的答案与解答：\n$questionText',
           thinkTimeoutSeconds: thinkTimeout,
         )
-        .listen((event) async {
-      if (event is AiDone) {
+        .listen((event) {
+      if (event is ThinkingStarted) {
+        _state = _state.copyWith(
+          status: SolveStatus.thinking,
+          currentModel: event.modelName,
+        );
+      } else if (event is ThinkingChunk) {
+        _state = _state.copyWith(
+          reasoningText: _state.reasoningText + event.text,
+        );
+      } else if (event is AnsweringStarted) {
+        _state = _state.copyWith(
+          status: SolveStatus.answering,
+          currentModel: event.modelName,
+        );
+      } else if (event is AnsweringChunk) {
+        _state = _state.copyWith(
+          answerText: _state.answerText + event.text,
+        );
+      } else if (event is AiDone) {
         final q = event.result.questions.isNotEmpty
             ? event.result.questions.first
             : null;
+        _state = SolveUiState(
+          status: SolveStatus.done,
+          result: SolveResult(
+            questions: event.result.questions,
+            aiModel: event.result.aiModel,
+            latencyMs: event.result.latencyMs,
+            tokensUsed: event.result.tokensUsed,
+            source: 'ai',
+          ),
+          currentModel: event.result.aiModel,
+        );
         if (q != null) {
-          await _db.solveRecordDao.overwriteAnswer(
+          _db.solveRecordDao.overwriteAnswer(
             id: questionId,
             answer: q.answer,
             solution: q.solution,
@@ -309,9 +342,17 @@ class SolveProvider extends ChangeNotifier {
             knowledgePoints: jsonEncode(q.knowledgePoints),
           );
         }
+      } else if (event is AiFailed) {
+        _state = _state.copyWith(
+          status: SolveStatus.error,
+          error: event.reason,
+        );
       }
+      notifyListeners();
     });
-    await sub.asFuture();
+    try {
+      await sub.asFuture();
+    } catch (_) {}
     await sub.cancel();
   }
 
@@ -320,10 +361,16 @@ class SolveProvider extends ChangeNotifier {
     required int questionId,
     required String questionText,
     String? combo1ApiKey,
+    String? combo2ApiKey,
     int thinkTimeout = 15,
   }) async {
+    _state = SolveUiState(
+      status: SolveStatus.thinking,
+      currentModel: '解答中',
+    );
+    notifyListeners();
     final combo1 = AiConfig.combo1(combo1ApiKey ?? '');
-    final combo2 = AiConfig.combo2('');
+    final combo2 = AiConfig.combo2(combo2ApiKey ?? '');
     final sub = _failover
         .solve(
           combo1: combo1,
@@ -332,13 +379,42 @@ class SolveProvider extends ChangeNotifier {
           userPrompt: '$questionText${AiConfig.detailedSolutionSuffix}',
           thinkTimeoutSeconds: thinkTimeout,
         )
-        .listen((event) async {
-      if (event is AiDone) {
+        .listen((event) {
+      if (event is ThinkingStarted) {
+        _state = _state.copyWith(
+          status: SolveStatus.thinking,
+          currentModel: event.modelName,
+        );
+      } else if (event is ThinkingChunk) {
+        _state = _state.copyWith(
+          reasoningText: _state.reasoningText + event.text,
+        );
+      } else if (event is AnsweringStarted) {
+        _state = _state.copyWith(
+          status: SolveStatus.answering,
+          currentModel: event.modelName,
+        );
+      } else if (event is AnsweringChunk) {
+        _state = _state.copyWith(
+          answerText: _state.answerText + event.text,
+        );
+      } else if (event is AiDone) {
         final q = event.result.questions.isNotEmpty
             ? event.result.questions.first
             : null;
+        _state = SolveUiState(
+          status: SolveStatus.done,
+          result: SolveResult(
+            questions: event.result.questions,
+            aiModel: event.result.aiModel,
+            latencyMs: event.result.latencyMs,
+            tokensUsed: event.result.tokensUsed,
+            source: 'ai',
+          ),
+          currentModel: event.result.aiModel,
+        );
         if (q != null) {
-          await _db.solveRecordDao.overwriteAnswer(
+          _db.solveRecordDao.overwriteAnswer(
             id: questionId,
             answer: q.answer,
             solution: q.solution,
@@ -348,9 +424,17 @@ class SolveProvider extends ChangeNotifier {
             knowledgePoints: jsonEncode(q.knowledgePoints),
           );
         }
+      } else if (event is AiFailed) {
+        _state = _state.copyWith(
+          status: SolveStatus.error,
+          error: event.reason,
+        );
       }
+      notifyListeners();
     });
-    await sub.asFuture();
+    try {
+      await sub.asFuture();
+    } catch (_) {}
     await sub.cancel();
   }
 

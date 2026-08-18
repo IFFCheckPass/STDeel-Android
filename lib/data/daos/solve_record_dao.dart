@@ -28,13 +28,16 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
           .get();
 
-  /// 更新单条记录的反馈
-  Future<bool> updateFeedback(int id, String feedback) =>
+  /// 更新单条记录的反馈（同时标记为未同步）
+  Future<int> updateFeedback(int id, String feedback) =>
       (update(solveRecords)..where((t) => t.id.equals(id)))
-          .write(SolveRecordsCompanion.userFeedback(Value(feedback)));
+          .write(SolveRecordsCompanion(
+        userFeedback: Value(feedback),
+        synced: const Value(false),
+      ));
 
-  /// 按 id 覆盖答案/解答/模型等字段（重答/疑问场景）
-  Future<bool> overwriteAnswer({
+  /// 按 id 覆盖答案/解答/模型等字段（重答/疑问场景），同时标记为未同步
+  Future<int> overwriteAnswer({
     required int id,
     required String answer,
     required String solution,
@@ -54,10 +57,16 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
               knowledgePoints == null ? const Value.absent() : Value(knowledgePoints),
           matched: const Value(false),
           userFeedback: const Value('none'),
+          synced: const Value(false),
         ),
       );
 
-  /// 取尚未同步至后端的记录（matched + userFeedback 任一变化即视为需同步）
+  /// 取尚未同步至后端的记录
   Future<List<SolveRecordEntity>> getUnsynced() =>
-      select(solveRecords).get();
+      (select(solveRecords)..where((t) => t.synced.equals(false))).get();
+
+  /// 标记单条记录为已同步
+  Future<int> markSynced(int id) =>
+      (update(solveRecords)..where((t) => t.id.equals(id)))
+          .write(const SolveRecordsCompanion(synced: Value(true)));
 }

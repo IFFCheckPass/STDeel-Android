@@ -28,6 +28,8 @@ class SolveRecords extends Table {
   TextColumn get userFeedback => text().withDefault(
     const Constant('none'),
   )(); // none | correct | wrong
+  BoolColumn get synced =>
+      boolean().withDefault(const Constant(false))(); // 是否已同步至后端
   TextColumn get imagePath => text().withDefault(const Constant(''))();
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();

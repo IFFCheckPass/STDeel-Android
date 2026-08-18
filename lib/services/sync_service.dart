@@ -31,7 +31,10 @@ class SyncService {
   final BackendApi _api;
 
   /// 解题完成后异步上传（不阻塞 UI）
-  Future<void> uploadSolveResult(SolveResult result) async {
+  Future<void> uploadSolveResult(
+    SolveResult result, {
+    List<int>? recordIds,
+  }) async {
     try {
       final payload = <String, dynamic>{
         'ai_model': result.aiModel,
@@ -43,6 +46,11 @@ class SyncService {
             result.questions.map((q) => q.toJson()).toList(growable: false),
       };
       await _api.uploadSolveRecord(payload);
+      if (recordIds != null) {
+        for (final id in recordIds) {
+          await _db.solveRecordDao.markSynced(id);
+        }
+      }
     } catch (_) {
       // 静默失败：离线时 drift 已有记录，下次手动同步可补
     }
@@ -124,7 +132,7 @@ class SyncService {
     }
   }
 
-  /// 联网后批量同步尚未上传的解题记录（占位实现）
+  /// 联网后批量同步尚未上传的解题记录
   Future<void> flushUnsynced() async {
     final records = await _db.solveRecordDao.getUnsynced();
     for (final r in records) {
@@ -141,6 +149,7 @@ class SyncService {
           'user_feedback': r.userFeedback,
           'image_path': r.imagePath,
         });
+        await _db.solveRecordDao.markSynced(r.id);
       } catch (_) {
         // 失败则保留待重试
       }

@@ -16,7 +16,7 @@ import '../config/app_config.dart';
 class BackendApi {
   BackendApi({Dio? dio, SharedPreferences? prefs})
       : _dio = dio ?? Dio(),
-        _prefs = prefs;
+        _prefsCache = prefs;
 
   final Dio _dio;
   SharedPreferences? _prefsCache;

@@ -12,7 +12,7 @@ class Question {
     this.solution = '',
     this.source = 'ai',
     this.hash,
-  });
+  }) : knowledgePoints = knowledgePoints ?? const [];
 
   /// 用题干文本生成 sha256 哈希，用于精确匹配本地答案库
   String get stableHash {
