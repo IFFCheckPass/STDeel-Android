@@ -1,0 +1,9 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter/material.dart",
+    "package:provider/provider.dart",
+    "package:stdeel/providers/settings_provider.dart",
+    "package:stdeel/services/sync_service.dart"
+  ]
+}

@@ -11,7 +11,6 @@ library;
 import 'dart:async';
 
 import '../config/ai_config.dart';
-import '../models/solve_result.dart';
 import 'ai_service.dart';
 import 'notification_service.dart';
 

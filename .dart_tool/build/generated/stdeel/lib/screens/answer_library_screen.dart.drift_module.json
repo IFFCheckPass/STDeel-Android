@@ -1,0 +1,10 @@
+{
+  "elements": {},
+  "imports": [
+    "package:crypto/crypto.dart",
+    "package:flutter/material.dart",
+    "package:provider/provider.dart",
+    "package:stdeel/data/database.dart",
+    "package:stdeel/services/sync_service.dart"
+  ]
+}

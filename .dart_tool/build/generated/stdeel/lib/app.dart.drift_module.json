@@ -1,0 +1,17 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter/material.dart",
+    "package:provider/provider.dart",
+    "package:stdeel/data/database.dart",
+    "package:stdeel/providers/settings_provider.dart",
+    "package:stdeel/providers/solve_provider.dart",
+    "package:stdeel/screens/answer_screen.dart",
+    "package:stdeel/screens/home_screen.dart",
+    "package:stdeel/services/ai_service.dart",
+    "package:stdeel/services/backend_api.dart",
+    "package:stdeel/services/failover_manager.dart",
+    "package:stdeel/services/notification_service.dart",
+    "package:stdeel/services/sync_service.dart"
+  ]
+}

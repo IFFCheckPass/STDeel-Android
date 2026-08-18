@@ -1,0 +1,9 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter/material.dart",
+    "package:flutter/services.dart",
+    "package:stdeel/app.dart",
+    "package:stdeel/services/notification_service.dart"
+  ]
+}

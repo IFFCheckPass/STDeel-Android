@@ -1,0 +1,9 @@
+{
+  "elements": {},
+  "imports": [
+    "package:drift/drift.dart",
+    "package:stdeel/data/database.dart",
+    "package:stdeel/models/solve_result.dart",
+    "package:stdeel/services/backend_api.dart"
+  ]
+}

@@ -1,0 +1,1 @@
+{"valid_import":true,"imports":[{"uri":"package:drift/drift.dart","transitive":false}],"elements":[{"kind":"table","name":"solve_records","dart_name":"SolveRecords"},{"kind":"table","name":"answer_library","dart_name":"AnswerLibrary"},{"kind":"table","name":"knowledge_mastery","dart_name":"KnowledgeMastery"}]}

@@ -1,0 +1,52 @@
+{
+  "elements": {
+    "KnowledgeDao": {
+      "id": {
+        "library_uri": "package:stdeel/data/daos/knowledge_dao.dart",
+        "name": "KnowledgeDao"
+      },
+      "declaration": {
+        "source_uri": "package:stdeel/data/daos/knowledge_dao.dart",
+        "offset": 202,
+        "name": "KnowledgeDao"
+      },
+      "references": [
+        {
+          "library_uri": "package:stdeel/data/tables.dart",
+          "name": "knowledge_mastery"
+        }
+      ],
+      "type": "dao",
+      "tables": [
+        {
+          "library_uri": "package:stdeel/data/tables.dart",
+          "name": "knowledge_mastery"
+        }
+      ],
+      "views": [],
+      "includes": [],
+      "queries": [],
+      "dart_type": {
+        "elements": [
+          {
+            "lexeme": "KnowledgeDao",
+            "import_uri": "package:stdeel/data/daos/knowledge_dao.dart"
+          }
+        ]
+      },
+      "database": {
+        "elements": [
+          {
+            "lexeme": "AppDatabase",
+            "import_uri": "package:stdeel/data/database.dart"
+          }
+        ]
+      }
+    }
+  },
+  "imports": [
+    "package:drift/drift.dart",
+    "package:stdeel/data/database.dart",
+    "package:stdeel/data/tables.dart"
+  ]
+}
