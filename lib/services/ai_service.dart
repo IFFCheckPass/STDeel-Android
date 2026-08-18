@@ -193,8 +193,8 @@ class AiService {
       return;
     }
 
-    final stream = response.data!.stream.transform(
-      Utf8Decoder(allowMalformed: true),
+    final stream = response.data!.stream.cast<List<int>>().transform(
+      utf8.decoder,
     );
     final buffer = StringBuffer();
     bool thinkingDetected = false;
@@ -279,7 +279,7 @@ class AiService {
           if (reasoning != null && reasoning.isNotEmpty) {
             if (!thinkingDetected) {
               thinkingDetected = true;
-              thinkTimer?.cancel();
+              thinkTimer.cancel();
               controller.add(ThinkingStarted(model.name));
             }
             reasoningContent += reasoning;
@@ -309,7 +309,7 @@ class AiService {
         completer.complete();
       }
     } finally {
-      thinkTimer?.cancel();
+      thinkTimer.cancel();
       // 若未发送 Done 也未 Failed，至少补一个 Failed
       if (!completer.isCompleted) {
         if (answerContent.isNotEmpty) {

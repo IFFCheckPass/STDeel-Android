@@ -1,0 +1,14 @@
+{
+  "elements": {},
+  "imports": [
+    "package:flutter/material.dart",
+    "package:provider/provider.dart",
+    "package:stdeel/providers/settings_provider.dart",
+    "package:stdeel/providers/solve_provider.dart",
+    "package:stdeel/widgets/thinking_indicator.dart",
+    "package:stdeel/screens/answer_library_screen.dart",
+    "package:stdeel/screens/camera_screen.dart",
+    "package:stdeel/screens/knowledge_screen.dart",
+    "package:stdeel/screens/settings_screen.dart"
+  ]
+}

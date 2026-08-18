@@ -1,0 +1,14 @@
+// ignore_for_file: type=lint
+mixin _$KnowledgeDaoMixin on DatabaseAccessor<AppDatabase> {
+  $KnowledgeMasteryTable get knowledgeMastery =>
+      attachedDatabase.knowledgeMastery;
+  KnowledgeDaoManager get managers => KnowledgeDaoManager(this);
+}
+
+class KnowledgeDaoManager {
+  final _$KnowledgeDaoMixin _db;
+  KnowledgeDaoManager(this._db);
+  $$KnowledgeMasteryTableTableManager get knowledgeMastery =>
+      $$KnowledgeMasteryTableTableManager(
+          _db.attachedDatabase, _db.knowledgeMastery);
+}

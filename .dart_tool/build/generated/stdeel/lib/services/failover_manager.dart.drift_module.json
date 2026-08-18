@@ -1,0 +1,9 @@
+{
+  "elements": {},
+  "imports": [
+    "package:stdeel/config/ai_config.dart",
+    "package:stdeel/models/solve_result.dart",
+    "package:stdeel/services/ai_service.dart",
+    "package:stdeel/services/notification_service.dart"
+  ]
+}
