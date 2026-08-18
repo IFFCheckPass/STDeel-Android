@@ -55,7 +55,7 @@ class AppProviders extends StatelessWidget {
         Provider<BackendApi>(create: (_) => BackendApi()),
         Provider<AiService>(create: (_) => AiService()),
         Provider<NotificationService>(
-          create: (_) => NotificationService(),
+          create: (_) => NotificationService()..init(),
         ),
         Provider<SyncService>(
           create: (ctx) => SyncService(
@@ -81,7 +81,7 @@ class AppProviders extends StatelessWidget {
         ),
         ChangeNotifierProvider<SettingsProvider>(
           create: (ctx) =>
-              SettingsProvider(backendApi: ctx.read<BackendApi>()),
+              SettingsProvider(backendApi: ctx.read<BackendApi>())..load(),
         ),
       ],
       child: child,

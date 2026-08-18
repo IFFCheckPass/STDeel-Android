@@ -191,6 +191,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       questionText:
           '请基于「$kp」这一知识点，生成 3 道难度递进的变式题，并给出答案与解析。',
       combo1ApiKey: settings.apiKeyCombo1,
+      combo2ApiKey: settings.apiKeyCombo2,
       thinkTimeout: settings.thinkTimeout,
     );
     if (!context.mounted) return;

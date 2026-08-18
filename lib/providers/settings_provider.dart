@@ -61,8 +61,13 @@ class SettingsProvider extends ChangeNotifier {
     _pinging = true;
     _pingOk = false;
     notifyListeners();
-    _pingOk = await _api.ping();
-    _pinging = false;
-    notifyListeners();
+    try {
+      _pingOk = await _api.ping();
+    } catch (_) {
+      _pingOk = false;
+    } finally {
+      _pinging = false;
+      notifyListeners();
+    }
   }
 }

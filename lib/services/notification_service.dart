@@ -14,7 +14,7 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
-  bool _initialized = false;
+  static bool _initialized = false;
 
   static const _successChannel = AndroidNotificationChannel(
     'stdeel_solve_success',

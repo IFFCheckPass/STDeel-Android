@@ -66,58 +66,62 @@ class FailoverManager {
     int thinkTimeoutSeconds,
     String userPrompt,
   ) async {
-    final attempts = <AiModelConfig>[
-      ...combo1.stages,
-      ...combo2.stages,
-    ];
-
     bool done = false;
 
-    // === 组合1：Qwen3.5 → Kimi K2.6（单阶段多模态） ===
-    for (final model in combo1.stages) {
-      if (done) break;
-      final ok = await _trySingleStage(
-        controller: controller,
-        model: model,
-        base64Image: base64Image,
-        userPrompt: userPrompt,
-        thinkTimeoutSeconds: thinkTimeoutSeconds,
-        onFailover: (next) {
-          final msg = '${model.name} ${thinkTimeoutSeconds}s 内未开始思考，'
-              '已自动切换至 ${next?.name ?? '下一组合'}';
-          _log(msg);
-          _notifier.notifyFailover(msg);
-        },
-      );
-      if (ok) {
-        done = true;
+    try {
+      // === 组合1：Qwen3.5 → Kimi K2.6（单阶段多模态） ===
+      for (final model in combo1.stages) {
+        if (done) break;
+        final ok = await _trySingleStage(
+          controller: controller,
+          model: model,
+          base64Image: base64Image,
+          userPrompt: userPrompt,
+          thinkTimeoutSeconds: thinkTimeoutSeconds,
+          onFailover: (next) {
+            final msg = '${model.name} ${thinkTimeoutSeconds}s 内未开始思考，'
+                '已自动切换至 ${next?.name ?? '下一组合'}';
+            _log(msg);
+            _notifier.notifyFailover(msg);
+          },
+        );
+        if (ok) {
+          done = true;
+        }
       }
-    }
 
-    // === 组合2：MathPix OCR → DeepSeek V4（两阶段） ===
-    if (!done && base64Image != null && base64Image.isNotEmpty) {
-      final ok = await _tryTwoStage(
-        controller: controller,
-        combo: combo2,
-        base64Image: base64Image,
-        thinkTimeoutSeconds: thinkTimeoutSeconds,
-        userPrompt: userPrompt,
-      );
-      if (ok) {
-        done = true;
+      // === 组合2：MathPix OCR → DeepSeek V4（两阶段） ===
+      if (!done && base64Image != null && base64Image.isNotEmpty) {
+        final ok = await _tryTwoStage(
+          controller: controller,
+          combo: combo2,
+          base64Image: base64Image,
+          thinkTimeoutSeconds: thinkTimeoutSeconds,
+          userPrompt: userPrompt,
+        );
+        if (ok) {
+          done = true;
+        }
       }
-    }
 
-    if (!done) {
-      const msg = '解题失败：所有 AI 组合均未在限时内响应';
+      if (!done) {
+        const msg = '解题失败：所有 AI 组合均未在限时内响应';
+        _log(msg);
+        _notifier.notifyFailure(msg);
+        controller.add(const AiFailed(msg));
+      }
+    } catch (e) {
+      final msg = 'Failover 内部错误: $e';
       _log(msg);
       _notifier.notifyFailure(msg);
-      controller.add(const AiFailed(msg));
+      if (!controller.isClosed) {
+        controller.add(AiFailed(msg));
+      }
+    } finally {
+      if (!controller.isClosed) {
+        await controller.close();
+      }
     }
-
-    // silence unused-attempts lint
-    if (attempts.isEmpty) return;
-    await controller.close();
   }
 
   /// 单阶段尝试：监听子流，think 检测失败即取消并降级
