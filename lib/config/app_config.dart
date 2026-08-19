@@ -5,7 +5,12 @@ class AppConfig {
   AppConfig._();
 
   /// 默认后端 API 基础 URL（可在设置页覆盖）
-  static const String defaultBackendUrl = 'https://api.stdeel.com';
+  ///
+  /// URL 语义为「完整 API 根」——含协议、host、以及到 API 根的全部前缀路径
+  /// （如 `/api/v1` 或反代前缀 `/stapi`）。代码只在其后追加资源名
+  /// （如 `/solve-records`、`/users/register`），不再硬编码 `/api/v1`，
+  /// 从而兼容 `snserver.dpdns.org/stapi` 这类反代路径。
+  static const String defaultBackendUrl = 'https://api.stdeel.com/api/v1';
 
   /// SharedPreferences keys
   static const String keyBackendUrl = 'backend_url';

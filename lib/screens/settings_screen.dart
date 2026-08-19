@@ -177,11 +177,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   keyboardType: TextInputType.url,
                   decoration: const InputDecoration(
                     labelText: '后端 API URL',
-                    hintText: 'https://api.stdeel.com',
+                    hintText: 'https://api.stdeel.com/api/v1',
                     prefixIcon: Icon(Icons.dns_outlined),
+                    helperText: '填到 API 根的完整地址（含协议、host 及前缀路径）',
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
+                  child: Text(
+                    '示例：\n'
+                    '  · 标准：https://api.stdeel.com/api/v1\n'
+                    '  · 反代：https://snserver.dpdns.org/stapi\n'
+                    '保存时自动补全协议、去掉尾部斜杠，路径前缀原样保留。',
+                    style: TextStyle(fontSize: 11, color: G.textFaint, height: 1.5),
+                  ),
+                ),
                 Row(
                   children: [
                     Expanded(
