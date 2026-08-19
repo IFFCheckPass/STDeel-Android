@@ -44,24 +44,15 @@ class BackendApi {
     await _prefsCache!.setString(AppConfig.keyBackendUrl, url);
   }
 
-  Future<void> setApiKeyCombo1(String key) async {
+  /// AI 组合列表（JSON 数组持久化）
+  Future<String?> getAiCombosJson() async {
     _prefsCache ??= await SharedPreferences.getInstance();
-    await _prefsCache!.setString(AppConfig.keyAiApiKeyCombo1, key);
+    return _prefsCache!.getString(AppConfig.keyAiCombos);
   }
 
-  Future<void> setApiKeyCombo2(String key) async {
+  Future<void> setAiCombosJson(String json) async {
     _prefsCache ??= await SharedPreferences.getInstance();
-    await _prefsCache!.setString(AppConfig.keyAiApiKeyCombo2, key);
-  }
-
-  Future<String?> getApiKeyCombo1() async {
-    _prefsCache ??= await SharedPreferences.getInstance();
-    return _prefsCache!.getString(AppConfig.keyAiApiKeyCombo1);
-  }
-
-  Future<String?> getApiKeyCombo2() async {
-    _prefsCache ??= await SharedPreferences.getInstance();
-    return _prefsCache!.getString(AppConfig.keyAiApiKeyCombo2);
+    await _prefsCache!.setString(AppConfig.keyAiCombos, json);
   }
 
   Future<int> getThinkTimeoutSeconds() async {

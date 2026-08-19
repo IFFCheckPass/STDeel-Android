@@ -6,11 +6,10 @@
 /// 关键逻辑：
 ///   1. POST /chat/completions，body 中 `stream: true`
 ///   2. 逐行读取 `data:` 前缀的 SSE 帧
-///   3. 检测 `choices[0].delta.reasoning_content`
-///   4. 在 thinkTimeout 内未收到非空 reasoning_content → 抛 TimeoutException（触发 Failover）
-///   5. 收到 reasoning_content 阶段 → UI 显示"AI 思考中..."
-///      收到 content 阶段 → UI 显示"AI 回答中..."
-///   6. [DONE] 后解析完整 JSON 得到 [QuestionResult]
+///   3. think 超时计时从【发起请求】开始：
+///      - 在 thinkTimeout 内收到首个 reasoning_content 或 content 块 → 取消计时
+///      - 到点仍无任何内容 → 取消请求并抛 AiFailed（触发 Failover）
+///   4. [DONE] 后解析完整 JSON 得到 [QuestionResult]
 library;
 
 import 'dart:async';
@@ -22,7 +21,7 @@ import '../config/ai_config.dart';
 import '../models/solve_result.dart';
 
 /// 流式事件，供 UI 与 FailoverManager 消费
-sealed class AiStreamEvent {
+abstract class AiStreamEvent {
   const AiStreamEvent();
 }
 
@@ -56,32 +55,13 @@ class AiFailed extends AiStreamEvent {
   final String reason;
 }
 
-/// 单次 AI 调用结果（不含 Failover）
-class AiCallOutcome {
-  const AiCallOutcome({
-    required this.questions,
-    required this.model,
-    required this.latencyMs,
-    required this.tokensUsed,
-    required this.success,
-    this.error,
-  });
-
-  final List<QuestionResult> questions;
-  final String model;
-  final int latencyMs;
-  final int tokensUsed;
-  final bool success;
-  final String? error;
-}
-
 class ThinkTimeoutException implements Exception {
   const ThinkTimeoutException(this.model, this.seconds);
   final String model;
   final int seconds;
 
   @override
-  String toString() => '$model 在 ${seconds}s 内未检测到思维链';
+  String toString() => '$model 在 ${seconds}s 内未输出任何内容';
 }
 
 class AiService {
@@ -89,18 +69,16 @@ class AiService {
 
   final Dio _dio;
 
+  void _safeAdd(StreamController<AiStreamEvent> c, AiStreamEvent e) {
+    if (!c.isClosed) c.add(e);
+  }
+
   /// 对单个模型发起流式调用，返回事件流。
-  ///
-  /// [thinkTimeoutSeconds] 内未收到非空 reasoning_content →
-  /// 流以 [AiFailed]（ThinkTimeoutException reason）结束，触发上层 Failover。
-  ///
-  /// [userPrompt] 可附加额外指令（重答/疑问场景）。
-  /// [base64Image] 不为空时以多模态格式发送。
   Stream<AiStreamEvent> callModelStream({
     required AiModelConfig model,
     required String? base64Image,
     String userPrompt = '',
-    int thinkTimeoutSeconds = 15,
+    int thinkTimeoutSeconds = 20,
     double temperature = 0.6,
   }) {
     final controller = StreamController<AiStreamEvent>();
@@ -159,13 +137,29 @@ class AiService {
       'stream': true,
       'temperature': temperature,
     };
-    // Kimi 需显式开启 thinking
-    if (model.enableThinking) {
-      body['thinking'] = {'type': 'enabled'};
-    }
 
     // 用 CancelToken 让 think 超时能真正取消 HTTP 请求
     final cancelToken = CancelToken();
+    final completer = Completer<void>();
+
+    /// 只发送一次失败事件
+    void fail(String reason) {
+      if (!completer.isCompleted) {
+        completer.complete();
+        _safeAdd(controller, AiFailed(reason));
+      }
+    }
+
+    // think 计时从发起请求开始（含连接 + 模型排队时间），
+    // 收到首个 reasoning 或 content 块即视为"模型已开始响应"。
+    final thinkTimer = Timer(Duration(seconds: thinkTimeoutSeconds), () {
+      if (!cancelToken.isCancelled) {
+        cancelToken.cancel('think 超时');
+      }
+      fail('${model.name}（${model.model}）在 ${thinkTimeoutSeconds}s 内'
+          '未输出任何内容，已自动切换下一模型');
+    });
+
     Response<ResponseBody> response;
     try {
       response = await _dio.post<ResponseBody>(
@@ -179,17 +173,24 @@ class AiService {
             'Accept': 'text/event-stream',
           },
           responseType: ResponseType.stream,
-          // 整体请求超时设宽松一点，think 检测由内部计时器控制
           receiveTimeout: const Duration(minutes: 5),
         ),
       );
     } on DioException catch (e) {
-      controller.add(AiFailed('请求失败: ${e.message ?? e.type.name}'));
+      thinkTimer.cancel();
+      if (completer.isCompleted) return; // think 超时已处理
+      fail('请求失败（${model.name}）: ${await _dioErrorText(e)}');
+      return;
+    } catch (e) {
+      thinkTimer.cancel();
+      if (completer.isCompleted) return;
+      fail('请求失败（${model.name}）: $e');
       return;
     }
 
     if (response.data == null) {
-      controller.add(const AiFailed('响应体为空'));
+      thinkTimer.cancel();
+      fail('响应体为空（${model.name}）');
       return;
     }
 
@@ -197,28 +198,10 @@ class AiService {
       utf8.decoder,
     );
     final buffer = StringBuffer();
-    bool thinkingDetected = false;
+    bool thinkingStarted = false;
     bool answeringStarted = false;
     String reasoningContent = '';
     String answerContent = '';
-    int tokensUsed = 0;
-
-    // think 检测计时器：到点未 think → 取消请求 + 发 AiFailed（触发 Failover）
-    Timer? thinkTimer;
-    final completer = Completer<void>();
-
-    thinkTimer = Timer(Duration(seconds: thinkTimeoutSeconds), () {
-      if (!thinkingDetected && !completer.isCompleted) {
-        // 真正取消底层 HTTP 流，让 await for 自然结束
-        if (!cancelToken.isCancelled) {
-          cancelToken.cancel('think 超时：未在 ${thinkTimeoutSeconds}s 内检测到思维链');
-        }
-        controller.add(
-          AiFailed('未在 ${thinkTimeoutSeconds}s 内检测到思维链'),
-        );
-        completer.complete();
-      }
-    });
 
     try {
       await for (final chunk in stream) {
@@ -229,7 +212,6 @@ class AiService {
         // 按行拆分，最后一行可能不完整，需保留在 buffer
         final raw = buffer.toString();
         final lines = raw.split('\n');
-        // 留最后一行到 buffer
         buffer.clear();
         buffer.write(lines.removeLast());
 
@@ -243,14 +225,15 @@ class AiService {
           if (data.startsWith(' ')) data = data.substring(1);
 
           if (data.trim() == '[DONE]') {
-            tokensUsed = _estimateTokens(reasoningContent, answerContent);
-            final questions = _parseAnswerJson(answerContent);
-            controller.add(
+            thinkTimer.cancel();
+            final questions = _parseAnswer(answerContent);
+            _safeAdd(
+              controller,
               AiDone(SolveResult(
                 questions: questions,
                 aiModel: model.name,
                 latencyMs: stopWatch.elapsedMilliseconds,
-                tokensUsed: tokensUsed,
+                tokensUsed: _estimateTokens(reasoningContent, answerContent),
                 source: 'ai',
               )),
             );
@@ -272,49 +255,48 @@ class AiService {
 
           if (delta == null) continue;
 
-          final reasoning =
-              delta['reasoning_content'] as String?;
+          final reasoning = delta['reasoning_content'] as String?;
           final content = delta['content'] as String?;
+          final hasReasoning = reasoning != null && reasoning.isNotEmpty;
+          final hasContent = content != null && content.isNotEmpty;
 
-          if (reasoning != null && reasoning.isNotEmpty) {
-            if (!thinkingDetected) {
-              thinkingDetected = true;
-              thinkTimer.cancel();
-              controller.add(ThinkingStarted(model.name));
-            }
-            reasoningContent += reasoning;
-            controller.add(ThinkingChunk(reasoning));
+          // 只要模型开始输出（无论思考还是回答），think 计时即结束
+          if (hasReasoning || hasContent) {
+            thinkTimer.cancel();
           }
 
-          if (content != null && content.isNotEmpty) {
+          if (hasReasoning) {
+            if (!thinkingStarted) {
+              thinkingStarted = true;
+              _safeAdd(controller, ThinkingStarted(model.name));
+            }
+            reasoningContent += reasoning;
+            _safeAdd(controller, ThinkingChunk(reasoning));
+          }
+
+          if (hasContent) {
             if (!answeringStarted) {
               answeringStarted = true;
-              controller.add(AnsweringStarted(model.name));
+              _safeAdd(controller, AnsweringStarted(model.name));
             }
             answerContent += content;
-            controller.add(AnsweringChunk(content));
+            _safeAdd(controller, AnsweringChunk(content));
           }
         }
       }
-    } on TimeoutException {
-      // 下层 timeout，通常不会到这里（ Dio 接收超时会抛 DioException）
-      if (!completer.isCompleted) {
-        controller.add(const AiFailed('流读取超时'));
-        completer.complete();
-      }
     } catch (e) {
-      // 取消触发的 DioException 会到这里，但 completer 已被 timer 完成
+      // 取消触发的异常：completer 已由计时器完成，忽略
       if (!completer.isCompleted) {
-        controller.add(AiFailed('流解析异常: $e'));
-        completer.complete();
+        fail('流解析异常（${model.name}）: $e');
       }
     } finally {
       thinkTimer.cancel();
-      // 若未发送 Done 也未 Failed，至少补一个 Failed
+      // 流自然结束但未收到 [DONE]：有内容则视为完成
       if (!completer.isCompleted) {
         if (answerContent.isNotEmpty) {
-          final questions = _parseAnswerJson(answerContent);
-          controller.add(
+          final questions = _parseAnswer(answerContent);
+          _safeAdd(
+            controller,
             AiDone(SolveResult(
               questions: questions,
               aiModel: model.name,
@@ -324,11 +306,65 @@ class AiService {
             )),
           );
         } else {
-          controller.add(const AiFailed('流提前结束且无内容'));
+          fail('${model.name} 连接已断开且未返回内容');
         }
         completer.complete();
       }
     }
+  }
+
+  /// 从 DioException 中提取可读的错误信息（含 HTTP 状态码与响应体）
+  Future<String> _dioErrorText(DioException e) async {
+    final resp = e.response;
+    if (resp != null) {
+      var msg = 'HTTP ${resp.statusCode}';
+      final data = resp.data;
+      if (data is ResponseBody) {
+        try {
+          final chunks = await data.stream.toList();
+          final text = utf8.decode(
+            chunks.expand((c) => c).toList(growable: false),
+          );
+          final err = _extractApiError(text);
+          if (err != null && err.isNotEmpty) msg = 'HTTP ${resp.statusCode} $err';
+        } catch (_) {/* 忽略读取失败 */}
+      } else if (data is Map && data['error'] is Map) {
+        final m = (data['error'] as Map)['message'];
+        if (m != null) msg = 'HTTP ${resp.statusCode} $m';
+      }
+      return msg;
+    }
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return '连接超时';
+      case DioExceptionType.connectionError:
+        return '无法连接服务器（请检查网络或 Base URL）';
+      case DioExceptionType.badCertificate:
+        return '证书校验失败';
+      case DioExceptionType.cancel:
+        return '请求已取消';
+      default:
+        return e.message ?? e.type.name;
+    }
+  }
+
+  /// 尝试从响应体文本中提取 error.message
+  String? _extractApiError(String text) {
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map) {
+        final err = decoded['error'];
+        if (err is Map && err['message'] != null) {
+          return err['message'].toString();
+        }
+        if (decoded['message'] != null) return decoded['message'].toString();
+      }
+    } catch (_) {
+      if (text.length <= 160) return text;
+    }
+    return null;
   }
 
   /// 解析 AI 返回的完整 JSON 字符串 → [QuestionResult]
@@ -337,7 +373,10 @@ class AiService {
   List<QuestionResult> _parseAnswer(String raw) {
     var text = raw.trim();
     if (text.startsWith('```')) {
-      text = text.replaceAll(RegExp(r'^```(?:json)?'), '').replaceAll(RegExp(r'```$'), '').trim();
+      text = text
+          .replaceAll(RegExp(r'^```(?:json)?'), '')
+          .replaceAll(RegExp(r'```$'), '')
+          .trim();
     }
     final start = text.indexOf('{');
     final end = text.lastIndexOf('}');
@@ -347,66 +386,108 @@ class AiService {
       final decoded = jsonDecode(slice) as Map<String, dynamic>;
       final list = decoded['questions'] as List<dynamic>? ?? [];
       return list
-          .map((e) =>
-              QuestionResult.fromJson(e as Map<String, dynamic>))
+          .map((e) => QuestionResult.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (_) {
       return [];
     }
   }
 
-  List<QuestionResult> _parseAnswerJson(String raw) => _parseAnswer(raw);
-
   int _estimateTokens(String reasoning, String content) =>
       ((reasoning.length + content.length) / 4).ceil();
 
-  /// 第二阶段：用纯文本（LaTeX）调用 DeepSeek 求解
-  Stream<AiStreamEvent> callSolutionStage({
-    required AiModelConfig model,
-    required String latexText,
-    int thinkTimeoutSeconds = 15,
-  }) =>
-      callModelStream(
-        model: model,
-        base64Image: null,
-        userPrompt: AiConfig.solutionPrompt(latexText),
-        thinkTimeoutSeconds: thinkTimeoutSeconds,
-      );
-
-  /// 第一阶段：MathPix OCR —— 简化为直接调用同端点，提取 LaTeX 文本
-  Future<String> runOcrStage({
-    required AiModelConfig model,
-    required String base64Image,
+  /// 获取模型列表：GET {baseUrl}/models
+  ///
+  /// 返回按字母排序的模型 ID 列表；失败抛异常（含原因）。
+  Future<List<String>> fetchModels({
+    required String baseUrl,
+    required String apiKey,
   }) async {
-    final completer = Completer<String>();
-    String collected = '';
-    late StreamSubscription sub;
-    sub = callModelStream(
-      model: model,
-      base64Image: base64Image,
-      userPrompt: '请将图片中的题目转换为 LaTeX 文本，仅返回 LaTeX。',
-      thinkTimeoutSeconds: 15,
-    ).listen(
-      (event) {
-        if (event is AnsweringChunk) {
-          collected += event.text;
-        } else if (event is AiDone) {
-          completer.complete(collected.isNotEmpty
-              ? collected
-              : event.result.questions
-                  .map((q) => q.content)
-                  .join('\n'));
-        } else if (event is AiFailed) {
-          completer.completeError(event.reason);
-        }
-      },
-      onDone: () {
-        if (!completer.isCompleted) completer.complete(collected);
-      },
-      onError: (e) {
-        if (!completer.isCompleted) completer.completeError(e);
-      },
-    );
-    return completer.future.whenComplete(sub.cancel);
+    final url = '$baseUrl/models';
+    try {
+      final resp = await _dio.get<dynamic>(
+        url,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $apiKey',
+          },
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
+      final data = resp.data;
+      List<dynamic>? rawList;
+      if (data is Map) {
+        rawList = data['data'] as List<dynamic>?;
+      }
+      if (rawList == null) {
+        throw '响应格式异常：未找到 data 数组';
+      }
+      final ids = rawList
+          .map((e) {
+            if (e is Map && e['id'] != null) return e['id'].toString();
+            return e.toString();
+          })
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList();
+      ids.sort();
+      return ids;
+    } on DioException catch (e) {
+      throw await _dioErrorText(e);
+    }
+  }
+
+  /// 连通性测试：向 {baseUrl}/chat/completions 发送一条极小请求。
+  ///
+  /// 返回 (成功与否, 耗时ms, 详细信息)。
+  Future<({bool ok, int latencyMs, String message})> testConnection({
+    required String baseUrl,
+    required String apiKey,
+    required String modelId,
+  }) async {
+    final sw = Stopwatch()..start();
+    try {
+      final resp = await _dio.post<dynamic>(
+        '$baseUrl/chat/completions',
+        data: {
+          'model': modelId,
+          'messages': [
+            {'role': 'user', 'content': 'ping'},
+          ],
+          'max_tokens': 4,
+          'stream': false,
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $apiKey',
+            'Content-Type': 'application/json',
+          },
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+      sw.stop();
+      if (resp.statusCode == 200) {
+        return (
+          ok: true,
+          latencyMs: sw.elapsedMilliseconds,
+          message: '连接成功，延迟 ${sw.elapsedMilliseconds}ms',
+        );
+      }
+      return (
+        ok: false,
+        latencyMs: sw.elapsedMilliseconds,
+        message: 'HTTP ${resp.statusCode}',
+      );
+    } on DioException catch (e) {
+      sw.stop();
+      return (
+        ok: false,
+        latencyMs: sw.elapsedMilliseconds,
+        message: await _dioErrorText(e),
+      );
+    } catch (e) {
+      sw.stop();
+      return (ok: false, latencyMs: sw.elapsedMilliseconds, message: '$e');
+    }
   }
 }

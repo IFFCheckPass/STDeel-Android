@@ -10,13 +10,11 @@ class AppConfig {
   /// SharedPreferences keys
   static const String keyBackendUrl = 'backend_url';
   static const String keyUserId = 'user_id';
-  static const String keyAiApiKeyCombo1 = 'ai_api_key_combo1';
-  static const String keyAiApiKeyCombo2 = 'ai_api_key_combo2';
+  static const String keyAiCombos = 'ai_combos_json';
   static const String keyThinkTimeoutSeconds = 'think_timeout_seconds';
-  static const String keyNvidiaEndpoint = 'nvidia_endpoint';
 
   /// 默认 think 检测超时（秒）
-  static const int defaultThinkTimeoutSeconds = 15;
+  static const int defaultThinkTimeoutSeconds = 20;
 
   /// 三层匹配阈值
   static const double matchHighThreshold = 0.85; // 直接返回

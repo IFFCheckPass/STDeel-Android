@@ -22,6 +22,7 @@ import '../services/failover_manager.dart';
 import '../services/notification_service.dart';
 import '../services/sync_service.dart';
 
+
 enum SolveStatus { idle, thinking, answering, done, error }
 
 class SolveUiState {
@@ -31,6 +32,7 @@ class SolveUiState {
     this.answerText = '',
     this.result,
     this.currentModel = '',
+    this.notice,
     this.error,
   });
 
@@ -39,6 +41,7 @@ class SolveUiState {
   final String answerText;
   final SolveResult? result;
   final String currentModel;
+  final String? notice;
   final String? error;
 
   SolveUiState copyWith({
@@ -47,6 +50,7 @@ class SolveUiState {
     String? answerText,
     SolveResult? result,
     String? currentModel,
+    String? notice,
     String? error,
   }) =>
       SolveUiState(
@@ -55,26 +59,24 @@ class SolveUiState {
         answerText: answerText ?? this.answerText,
         result: result ?? this.result,
         currentModel: currentModel ?? this.currentModel,
+        notice: notice,
         error: error,
       );
 }
 
 class SolveProvider extends ChangeNotifier {
   SolveProvider({
-    required AiService aiService,
     required FailoverManager failoverManager,
     required SyncService syncService,
     required NotificationService notificationService,
     required AppDatabase database,
     required BackendApi backendApi,
-  })  : _ai = aiService,
-        _failover = failoverManager,
+  })  : _failover = failoverManager,
         _sync = syncService,
         _notifier = notificationService,
         _db = database,
         _api = backendApi;
 
-  final AiService _ai;
   final FailoverManager _failover;
   final SyncService _sync;
   final NotificationService _notifier;
@@ -87,10 +89,18 @@ class SolveProvider extends ChangeNotifier {
   /// 拍照/选图后触发整轮 Failover 解题
   Future<void> solve({
     required String imagePath,
-    String? combo1ApiKey,
-    String? combo2ApiKey,
-    int thinkTimeout = 15,
+    required List<AiModelConfig> models,
+    int thinkTimeout = 20,
   }) async {
+    if (models.isEmpty) {
+      _state = const SolveUiState(
+        status: SolveStatus.error,
+        error: '未配置可用的 AI 模型，请到「设置 → AI 模型组合」填写 API Key',
+      );
+      notifyListeners();
+      return;
+    }
+
     final sw = Stopwatch()..start();
     final file = File(imagePath);
     if (!await file.exists()) {
@@ -104,9 +114,6 @@ class SolveProvider extends ChangeNotifier {
     final bytes = await file.readAsBytes();
     final base64Image = base64Encode(bytes);
 
-    final combo1 = AiConfig.combo1(combo1ApiKey ?? '');
-    final combo2 = AiConfig.combo2(combo2ApiKey ?? '');
-
     _state = const SolveUiState(
       status: SolveStatus.thinking,
       currentModel: '准备中',
@@ -115,65 +122,72 @@ class SolveProvider extends ChangeNotifier {
 
     final sub = _failover
         .solve(
-          combo1: combo1,
-          combo2: combo2,
+          models: models,
           base64Image: base64Image,
           thinkTimeoutSeconds: thinkTimeout,
         )
-        .listen((event) {
-      if (event is ThinkingStarted) {
-        _state = _state.copyWith(
-          status: SolveStatus.thinking,
-          currentModel: event.modelName,
-        );
-      } else if (event is ThinkingChunk) {
-        _state = _state.copyWith(
-          reasoningText: _state.reasoningText + event.text,
-        );
-      } else if (event is AnsweringStarted) {
-        _state = _state.copyWith(
-          status: SolveStatus.answering,
-          currentModel: event.modelName,
-        );
-      } else if (event is AnsweringChunk) {
-        _state = _state.copyWith(
-          answerText: _state.answerText + event.text,
-        );
-      } else if (event is AiDone) {
-        sw.stop();
-        final result = SolveResult(
-          questions: event.result.questions,
-          aiModel: event.result.aiModel,
-          latencyMs: event.result.latencyMs,
-          tokensUsed: event.result.tokensUsed,
-          source: 'ai',
-          imagePath: imagePath,
-        );
-        _state = SolveUiState(
-          status: SolveStatus.done,
-          result: result,
-          currentModel: event.result.aiModel,
-        );
-        // 持久化到 drift，然后异步上传后端并标记已同步
-        _persistResult(result).then((ids) {
-          _sync.uploadSolveResult(result, recordIds: ids);
-        });
-        // 通知
-        _notifier.notifySuccess(
-          questionCount: result.questions.length,
-          elapsed: Duration(milliseconds: result.latencyMs),
-        );
-      } else if (event is AiFailed) {
-        _state = _state.copyWith(
-          status: SolveStatus.error,
-          error: event.reason,
-        );
-      }
-      notifyListeners();
-    });
-
+        .listen((event) => _handleStreamEvent(event, sw, imagePath));
     await sub.asFuture();
     await sub.cancel();
+  }
+
+  void _handleStreamEvent(AiStreamEvent event, Stopwatch sw, String? imagePath) {
+    if (event is ThinkingStarted) {
+      _state = _state.copyWith(
+        status: SolveStatus.thinking,
+        currentModel: event.modelName,
+        notice: null,
+      );
+    } else if (event is ThinkingChunk) {
+      _state = _state.copyWith(
+        reasoningText: _state.reasoningText + event.text,
+      );
+    } else if (event is AnsweringStarted) {
+      _state = _state.copyWith(
+        status: SolveStatus.answering,
+        currentModel: event.modelName,
+        notice: null,
+      );
+    } else if (event is AnsweringChunk) {
+      _state = _state.copyWith(
+        answerText: _state.answerText + event.text,
+      );
+    } else if (event is ModelFailed) {
+      _state = _state.copyWith(
+        notice: '${event.modelName} 失败，切换至 ${event.nextModelName}…',
+        currentModel: event.nextModelName,
+      );
+    } else if (event is AiDone) {
+      sw.stop();
+      final result = SolveResult(
+        questions: event.result.questions,
+        aiModel: event.result.aiModel,
+        latencyMs: event.result.latencyMs,
+        tokensUsed: event.result.tokensUsed,
+        source: 'ai',
+        imagePath: imagePath ?? '',
+      );
+      _state = SolveUiState(
+        status: SolveStatus.done,
+        result: result,
+        currentModel: event.result.aiModel,
+      );
+      // 持久化到 drift，然后异步上传后端并标记已同步
+      _persistResult(result).then((ids) {
+        _sync.uploadSolveResult(result, recordIds: ids);
+      });
+      // 通知
+      _notifier.notifySuccess(
+        questionCount: result.questions.length,
+        elapsed: Duration(milliseconds: result.latencyMs),
+      );
+    } else if (event is AiFailed) {
+      _state = _state.copyWith(
+        status: SolveStatus.error,
+        error: event.reason,
+      );
+    }
+    notifyListeners();
   }
 
   /// 写入 drift（每题一行），返回插入的记录 ID 列表
@@ -275,64 +289,46 @@ class SolveProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// "重答"按钮：以高温度重调 AI 覆盖答案
-  Future<void> retry({
+  /// 纯文本调 AI（重答 / 疑问 / 举一反三共用）
+  Future<void> _solveText({
+    required String userPrompt,
     required int questionId,
-    required String questionText,
-    required String? combo1ApiKey,
-    String? combo2ApiKey,
-    int thinkTimeout = 15,
+    required List<AiModelConfig> models,
+    required int thinkTimeout,
+    required String startLabel,
+    bool overwriteRecord = true,
   }) async {
+    if (models.isEmpty) {
+      _state = const SolveUiState(
+        status: SolveStatus.error,
+        error: '未配置可用的 AI 模型，请到「设置 → AI 模型组合」填写 API Key',
+      );
+      notifyListeners();
+      return;
+    }
     _state = SolveUiState(
       status: SolveStatus.thinking,
-      currentModel: '重答中',
+      currentModel: startLabel,
     );
     notifyListeners();
-    final combo1 = AiConfig.combo1(combo1ApiKey ?? '');
-    final combo2 = AiConfig.combo2(combo2ApiKey ?? '');
     final sub = _failover
         .solve(
-          combo1: combo1,
-          combo2: combo2,
+          models: models,
           base64Image: null,
-          userPrompt: '请重新解答以下题目，给出新的答案与解答：\n$questionText',
+          userPrompt: userPrompt,
           thinkTimeoutSeconds: thinkTimeout,
         )
         .listen((event) {
-      if (event is ThinkingStarted) {
-        _state = _state.copyWith(
-          status: SolveStatus.thinking,
-          currentModel: event.modelName,
-        );
-      } else if (event is ThinkingChunk) {
-        _state = _state.copyWith(
-          reasoningText: _state.reasoningText + event.text,
-        );
-      } else if (event is AnsweringStarted) {
-        _state = _state.copyWith(
-          status: SolveStatus.answering,
-          currentModel: event.modelName,
-        );
-      } else if (event is AnsweringChunk) {
-        _state = _state.copyWith(
-          answerText: _state.answerText + event.text,
-        );
-      } else if (event is AiDone) {
+      if (event is AiDone) {
         final q = event.result.questions.isNotEmpty
             ? event.result.questions.first
             : null;
         _state = SolveUiState(
           status: SolveStatus.done,
-          result: SolveResult(
-            questions: event.result.questions,
-            aiModel: event.result.aiModel,
-            latencyMs: event.result.latencyMs,
-            tokensUsed: event.result.tokensUsed,
-            source: 'ai',
-          ),
+          result: event.result,
           currentModel: event.result.aiModel,
         );
-        if (q != null) {
+        if (q != null && overwriteRecord && questionId > 0) {
           _db.solveRecordDao.overwriteAnswer(
             id: questionId,
             answer: q.answer,
@@ -343,13 +339,10 @@ class SolveProvider extends ChangeNotifier {
             knowledgePoints: jsonEncode(q.knowledgePoints),
           );
         }
-      } else if (event is AiFailed) {
-        _state = _state.copyWith(
-          status: SolveStatus.error,
-          error: event.reason,
-        );
+        notifyListeners();
+        return;
       }
-      notifyListeners();
+      _handleStreamEvent(event, Stopwatch(), null);
     });
     try {
       await sub.asFuture();
@@ -357,87 +350,35 @@ class SolveProvider extends ChangeNotifier {
     await sub.cancel();
   }
 
+  /// "重答"按钮：以高温度重调 AI 覆盖答案
+  Future<void> retry({
+    required int questionId,
+    required String questionText,
+    required List<AiModelConfig> models,
+    int thinkTimeout = 20,
+  }) =>
+      _solveText(
+        userPrompt: '请重新解答以下题目，给出新的答案与解答：\n$questionText',
+        questionId: questionId,
+        models: models,
+        thinkTimeout: thinkTimeout,
+        startLabel: '重答中',
+      );
+
   /// "疑问"按钮：附加详细分步指令
   Future<void> askDetailed({
     required int questionId,
     required String questionText,
-    String? combo1ApiKey,
-    String? combo2ApiKey,
-    int thinkTimeout = 15,
-  }) async {
-    _state = SolveUiState(
-      status: SolveStatus.thinking,
-      currentModel: '解答中',
-    );
-    notifyListeners();
-    final combo1 = AiConfig.combo1(combo1ApiKey ?? '');
-    final combo2 = AiConfig.combo2(combo2ApiKey ?? '');
-    final sub = _failover
-        .solve(
-          combo1: combo1,
-          combo2: combo2,
-          base64Image: null,
-          userPrompt: '$questionText${AiConfig.detailedSolutionSuffix}',
-          thinkTimeoutSeconds: thinkTimeout,
-        )
-        .listen((event) {
-      if (event is ThinkingStarted) {
-        _state = _state.copyWith(
-          status: SolveStatus.thinking,
-          currentModel: event.modelName,
-        );
-      } else if (event is ThinkingChunk) {
-        _state = _state.copyWith(
-          reasoningText: _state.reasoningText + event.text,
-        );
-      } else if (event is AnsweringStarted) {
-        _state = _state.copyWith(
-          status: SolveStatus.answering,
-          currentModel: event.modelName,
-        );
-      } else if (event is AnsweringChunk) {
-        _state = _state.copyWith(
-          answerText: _state.answerText + event.text,
-        );
-      } else if (event is AiDone) {
-        final q = event.result.questions.isNotEmpty
-            ? event.result.questions.first
-            : null;
-        _state = SolveUiState(
-          status: SolveStatus.done,
-          result: SolveResult(
-            questions: event.result.questions,
-            aiModel: event.result.aiModel,
-            latencyMs: event.result.latencyMs,
-            tokensUsed: event.result.tokensUsed,
-            source: 'ai',
-          ),
-          currentModel: event.result.aiModel,
-        );
-        if (q != null) {
-          _db.solveRecordDao.overwriteAnswer(
-            id: questionId,
-            answer: q.answer,
-            solution: q.solution,
-            aiModel: event.result.aiModel,
-            latencyMs: event.result.latencyMs,
-            tokensUsed: event.result.tokensUsed,
-            knowledgePoints: jsonEncode(q.knowledgePoints),
-          );
-        }
-      } else if (event is AiFailed) {
-        _state = _state.copyWith(
-          status: SolveStatus.error,
-          error: event.reason,
-        );
-      }
-      notifyListeners();
-    });
-    try {
-      await sub.asFuture();
-    } catch (_) {}
-    await sub.cancel();
-  }
+    required List<AiModelConfig> models,
+    int thinkTimeout = 20,
+  }) =>
+      _solveText(
+        userPrompt: '$questionText${AiConfig.detailedSolutionSuffix}',
+        questionId: questionId,
+        models: models,
+        thinkTimeout: thinkTimeout,
+        startLabel: '解答中',
+      );
 
   /// 计算题目哈希（与本地答案库一致）
   String hashOf(String text) {

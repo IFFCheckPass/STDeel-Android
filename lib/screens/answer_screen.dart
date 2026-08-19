@@ -3,7 +3,6 @@
 /// 整页可上下滚动；每道题一个 AnswerCard：
 ///   - 左侧 4 个按钮（竖向）：重答 / 疑问 / 错误 / 正确
 ///   - 右侧：题目 + 知识点标签 + 答案 + 解答过程（LaTeX）
-/// 使用 flutter_gen_ai_chat_ui 展示流式动画，flutter_tex 渲染公式。
 library;
 
 import 'package:flutter/material.dart';
@@ -13,6 +12,7 @@ import '../models/solve_result.dart';
 import '../providers/settings_provider.dart';
 import '../providers/solve_provider.dart';
 import '../widgets/answer_card.dart';
+import '../widgets/glass.dart';
 import '../widgets/thinking_indicator.dart';
 
 class AnswerScreen extends StatelessWidget {
@@ -24,10 +24,7 @@ class AnswerScreen extends StatelessWidget {
     final state = solve.state;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('解题结果'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('解题结果')),
       body: _buildBody(context, state),
     );
   }
@@ -39,23 +36,28 @@ class AnswerScreen extends StatelessWidget {
     }
     if (state.status == SolveStatus.error) {
       return Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline,
-                  size: 64, color: Color(0xFFE74C3C)),
-              const SizedBox(height: 12),
-              Text(state.error ?? '未知错误',
+          child: GlassCard(
+            fillColor: G.coral.withOpacity(0.08),
+            borderColor: G.coral.withOpacity(0.35),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 56, color: G.coral),
+                const SizedBox(height: 12),
+                Text(
+                  state.error ?? '未知错误',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFFE74C3C))),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('返回'),
-              ),
-            ],
+                  style: const TextStyle(color: G.coral, height: 1.6),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('返回'),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -78,34 +80,33 @@ class AnswerScreen extends StatelessWidget {
             modelName: state.currentModel.isEmpty
                 ? null
                 : state.currentModel,
+            notice: state.notice,
           ),
           const SizedBox(height: 12),
           if (state.status == SolveStatus.thinking &&
               state.reasoningText.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4F7CFF).withOpacity(0.06),
-                borderRadius: BorderRadius.circular(8),
-              ),
+            GlassCard(
+              fillColor: G.accent.withOpacity(0.06),
+              borderColor: G.accent.withOpacity(0.25),
               child: SelectableText(
                 state.reasoningText,
                 style: const TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF555555),
+                  color: G.textSecondary,
                   fontStyle: FontStyle.italic,
+                  height: 1.5,
                 ),
               ),
             ),
           if (state.status == SolveStatus.answering &&
               state.answerText.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00B894).withOpacity(0.06),
-                borderRadius: BorderRadius.circular(8),
+            GlassCard(
+              fillColor: G.mint.withOpacity(0.06),
+              borderColor: G.mint.withOpacity(0.25),
+              child: SelectableText(
+                state.answerText,
+                style: const TextStyle(height: 1.5),
               ),
-              child: SelectableText(state.answerText),
             ),
         ],
       ),
@@ -136,26 +137,42 @@ class AnswerScreen extends StatelessWidget {
     );
   }
 
+  /// 重答/疑问前检查模型链
+  bool _ensureModels(BuildContext context) {
+    final settings = context.read<SettingsProvider>();
+    if (settings.buildModelChain().isEmpty) {
+      showGlassSnackBar(
+        context,
+        '请先到「设置 → AI 模型组合」填写 API Key 并启用组合',
+        error: true,
+      );
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _onRetry(BuildContext context, QuestionResult q) async {
+    if (!_ensureModels(context)) return;
     final solve = context.read<SolveProvider>();
     final settings = context.read<SettingsProvider>();
+    showGlassSnackBar(context, '正在重答…');
     await solve.retry(
       questionId: q.id,
       questionText: q.content,
-      combo1ApiKey: settings.apiKeyCombo1,
-      combo2ApiKey: settings.apiKeyCombo2,
+      models: settings.buildModelChain(),
       thinkTimeout: settings.thinkTimeout,
     );
   }
 
   Future<void> _onAskDetailed(BuildContext context, QuestionResult q) async {
+    if (!_ensureModels(context)) return;
     final solve = context.read<SolveProvider>();
     final settings = context.read<SettingsProvider>();
+    showGlassSnackBar(context, '正在生成分步解答…');
     await solve.askDetailed(
       questionId: q.id,
       questionText: q.content,
-      combo1ApiKey: settings.apiKeyCombo1,
-      combo2ApiKey: settings.apiKeyCombo2,
+      models: settings.buildModelChain(),
       thinkTimeout: settings.thinkTimeout,
     );
   }
@@ -167,9 +184,7 @@ class AnswerScreen extends StatelessWidget {
       knowledgePoints: q.knowledgePoints,
     );
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已标记正确，知识点统计已更新')),
-    );
+    showGlassSnackBar(context, '已标记正确，知识点统计已更新', success: true);
   }
 
   Future<void> _onMarkWrong(BuildContext context, QuestionResult q) async {
@@ -179,8 +194,6 @@ class AnswerScreen extends StatelessWidget {
       knowledgePoints: q.knowledgePoints,
     );
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已标记错误，薄弱知识点已记录')),
-    );
+    showGlassSnackBar(context, '已标记错误，薄弱知识点已记录', success: true);
   }
 }

@@ -1,11 +1,14 @@
 /// 拍照/上传页 - 思谛 STDeel
 ///
 /// 使用 image_picker 完成拍照或从相册选择，
-/// 选定后把图片路径 pop 回上层。
+/// 选定后进入裁切/旋转编辑页，编辑完成把最终图片路径 pop 回上层。
 library;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../widgets/glass.dart';
+import 'image_edit_screen.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key, this.initialCamera = true});
@@ -31,16 +34,22 @@ class _CameraScreenState extends State<CameraScreen> {
         imageQuality: 85,
       );
       if (file != null && mounted) {
-        Navigator.of(context).pop(file.path);
+        // 进入裁切/旋转编辑页（替换当前页，编辑结果直接返回主页）
+        final edited = await Navigator.of(context).pushReplacement<String, String>(
+          MaterialPageRoute(builder: (_) => ImageEditScreen(imagePath: file.path)),
+        );
+        if (mounted && edited != null) {
+          Navigator.of(context).pop(edited);
+        }
+      } else if (mounted) {
+        // 用户取消选择
+        setState(() => _busy = false);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('取图失败: $e')),
-        );
+        showGlassSnackBar(context, '取图失败: $e', error: true);
+        setState(() => _busy = false);
       }
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -64,38 +73,70 @@ class _CameraScreenState extends State<CameraScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 24),
-            Icon(
-              Icons.add_a_photo,
-              size: 96,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '拍照或选择图片，AI 将直接解题',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF888888)),
+            GlassCard(
+              padding: const EdgeInsets.all(32),
+              radius: 28,
+              glowColor: G.accentDeep,
+              child: Column(
+                children: [
+                  Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(26),
+                      gradient: G.primaryGradient,
+                      boxShadow: [
+                        BoxShadow(
+                          color: G.accentDeep.withOpacity(0.5),
+                          blurRadius: 28,
+                          spreadRadius: -4,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.add_a_photo_rounded,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '拍照或选择图片，AI 将直接解题',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: G.textSecondary, letterSpacing: 1),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 32),
             if (_busy)
-              const Center(child: CircularProgressIndicator())
-            else ...[
-              FilledButton.icon(
-                onPressed: () => _pick(ImageSource.camera),
-                icon: const Icon(Icons.camera_alt),
-                label: const Text('拍照'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(56),
+              const Center(
+                child: Column(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text('正在打开相机…', style: TextStyle(color: G.textSecondary)),
+                  ],
                 ),
+              )
+            else ...[
+              GlassPrimaryButton(
+                icon: Icons.camera_alt_rounded,
+                label: '拍照',
+                onPressed: () => _pick(ImageSource.camera),
               ),
               const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: () => _pick(ImageSource.gallery),
-                icon: const Icon(Icons.photo_library),
-                label: const Text('从相册选择'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(56),
-                  backgroundColor: const Color(0xFF6C7686),
+              GlassPrimaryButton(
+                icon: Icons.photo_library_outlined,
+                label: '从相册选择',
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.12),
+                    Colors.white.withOpacity(0.06),
+                  ],
                 ),
+                borderColor: G.glassBorder,
+                onPressed: () => _pick(ImageSource.gallery),
               ),
             ],
           ],

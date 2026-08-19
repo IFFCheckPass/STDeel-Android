@@ -17,6 +17,7 @@ import 'services/backend_api.dart';
 import 'services/failover_manager.dart';
 import 'services/notification_service.dart';
 import 'services/sync_service.dart';
+import 'widgets/glass.dart';
 
 class StdeelApp extends StatelessWidget {
   const StdeelApp({super.key});
@@ -24,14 +25,10 @@ class StdeelApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '思谛 STDeel',
+      title: '思谛',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme:
-            ColorScheme.fromSeed(seedColor: const Color(0xFF4F7CFF)),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(centerTitle: true),
-      ),
+      theme: G.theme(),
+      builder: (context, child) => GlassBackground(child: child),
       home: const HomeScreen(),
       routes: {
         '/answer': (_) => const AnswerScreen(),
@@ -71,7 +68,6 @@ class AppProviders extends StatelessWidget {
         ),
         ChangeNotifierProvider<SolveProvider>(
           create: (ctx) => SolveProvider(
-            aiService: ctx.read<AiService>(),
             failoverManager: ctx.read<FailoverManager>(),
             syncService: ctx.read<SyncService>(),
             notificationService: ctx.read<NotificationService>(),
