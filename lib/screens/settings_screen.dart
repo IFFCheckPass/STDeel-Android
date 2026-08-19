@@ -236,7 +236,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       showGlassSnackBar(context, 'URL 不能为空', error: true);
       return;
     }
-    await s.setBackendUrl(url);
+    // 规范化：补全 https://、去尾部斜杠、保留子路径（如 /stapi）
+    final normalized = normalizeBaseUrl(url);
+    _urlCtrl.value = TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+    await s.setBackendUrl(normalized);
     if (!mounted) return;
     showGlassSnackBar(context, '后端 URL 已保存', success: true);
   }

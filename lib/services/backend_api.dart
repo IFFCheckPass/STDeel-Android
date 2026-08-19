@@ -12,6 +12,7 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
+import '../models/ai_combo.dart' show normalizeBaseUrl;
 
 class BackendApi {
   BackendApi({Dio? dio, SharedPreferences? prefs})
@@ -22,10 +23,15 @@ class BackendApi {
   SharedPreferences? _prefsCache;
 
   /// 后端 URL（首次访问时从 SharedPreferences 加载）
+  ///
+  /// 兜底规范化：补全 https://、去尾斜杠、保留子路径（如 /stapi），
+  /// 兼容用户直接输入 `snserver.dpdns.org/stapi` 这类历史数据。
   Future<String> _baseUrl() async {
     _prefsCache ??= await SharedPreferences.getInstance();
-    return _prefsCache!.getString(AppConfig.keyBackendUrl) ??
-        AppConfig.defaultBackendUrl;
+    final raw =
+        _prefsCache!.getString(AppConfig.keyBackendUrl) ??
+            AppConfig.defaultBackendUrl;
+    return normalizeBaseUrl(raw);
   }
 
   Future<String> _userId() async {
