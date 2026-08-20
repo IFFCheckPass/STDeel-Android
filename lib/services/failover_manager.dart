@@ -1,11 +1,12 @@
 /// Failover 管理器 - 思谛 STDeel
 ///
-/// 调用顺序：
-///   1. 组合1 主模型 Qwen3.5 → 15s 未 think → 降级
-///   2. 组合1 备用 Kimi K2.6 → 15s 未 think → 降级
-///   3. 组合2 MathPix OCR → DeepSeek V4 两阶段
+/// 用户在设置页配置任意数量的 AI 组合（有序列表），
+/// 解题时按顺序依次尝试：
+///   - 某组合在 think 超时内未输出任何内容 → 自动切换下一个
+///   - 请求失败（网络/鉴权等）→ 记录原因并切换下一个
+///   - 全部失败 → 汇总每个组合的具体失败原因返回给 UI
 ///
-/// 每次降级发送通知 + 记录日志；全部失败发送失败通知。
+/// 每次降级发送通知 + 记录日志。
 library;
 
 import 'dart:async';
@@ -21,8 +22,15 @@ class FailoverLogEntry {
   final String message;
 
   @override
-  String toString() =>
-      '${timestamp.toIso8601String()} | $message';
+  String toString() => '${timestamp.toIso8601String()} | $message';
+}
+
+/// 单个模型失败（将切换到下一个），供 UI 展示切换进度
+class ModelFailed extends AiStreamEvent {
+  const ModelFailed(this.modelName, this.reason, this.nextModelName);
+  final String modelName;
+  final String reason;
+  final String nextModelName;
 }
 
 class FailoverManager {
@@ -40,74 +48,73 @@ class FailoverManager {
     logs.add(FailoverLogEntry(DateTime.now(), msg));
   }
 
-  /// 按组合顺序尝试，首个 think 成功的模型透传其事件流。
-  /// 全部失败时发出 [AiFailed] 终止事件。
+  /// 按组合顺序尝试，首个成功的模型透传其事件流。
+  /// 全部失败时发出携带全部原因的 [AiFailed] 终止事件。
   ///
-  /// [base64Image] 不为空时单阶段直发；组合2 会先 OCR 再用 LaTeX 求解。
+  /// [base64Image] 不为空时发送多模态请求；为空时发送 [userPrompt] 纯文本。
   Stream<AiStreamEvent> solve({
-    required AiComboConfig combo1,
-    required AiComboConfig combo2,
+    required List<AiModelConfig> models,
     required String? base64Image,
-    int thinkTimeoutSeconds = 15,
+    int thinkTimeoutSeconds = 20,
     String userPrompt = '',
   }) {
     final controller = StreamController<AiStreamEvent>();
-    _run(controller, combo1, combo2, base64Image, thinkTimeoutSeconds,
-        userPrompt);
+    _run(controller, models, base64Image, thinkTimeoutSeconds, userPrompt);
     return controller.stream;
   }
 
   Future<void> _run(
     StreamController<AiStreamEvent> controller,
-    AiComboConfig combo1,
-    AiComboConfig combo2,
+    List<AiModelConfig> models,
     String? base64Image,
     int thinkTimeoutSeconds,
     String userPrompt,
   ) async {
     bool done = false;
+    final failures = <String>[];
 
     try {
-      // === 组合1：Qwen3.5 → Kimi K2.6（单阶段多模态） ===
-      for (final model in combo1.stages) {
-        if (done) break;
-        final ok = await _trySingleStage(
+      if (models.isEmpty) {
+        const msg = '未配置可用的 AI 模型，请到「设置 → AI 模型组合」添加';
+        _log(msg);
+        controller.add(const AiFailed(msg));
+        return;
+      }
+
+      for (var i = 0; i < models.length; i++) {
+        final model = models[i];
+        final (ok, reason) = await _trySingleStage(
           controller: controller,
           model: model,
           base64Image: base64Image,
           userPrompt: userPrompt,
           thinkTimeoutSeconds: thinkTimeoutSeconds,
-          onFailover: (next) {
-            final msg = '${model.name} ${thinkTimeoutSeconds}s 内未开始思考，'
-                '已自动切换至 ${next?.name ?? '下一组合'}';
-            _log(msg);
-            _notifier.notifyFailover(msg);
-          },
         );
         if (ok) {
           done = true;
+          break;
         }
-      }
+        failures.add('${model.name}（${model.model}）：${reason ?? '无响应'}');
 
-      // === 组合2：MathPix OCR → DeepSeek V4（两阶段） ===
-      if (!done && base64Image != null && base64Image.isNotEmpty) {
-        final ok = await _tryTwoStage(
-          controller: controller,
-          combo: combo2,
-          base64Image: base64Image,
-          thinkTimeoutSeconds: thinkTimeoutSeconds,
-          userPrompt: userPrompt,
-        );
-        if (ok) {
-          done = true;
+        if (i < models.length - 1) {
+          final next = models[i + 1];
+          final switchMsg = '${model.name} 失败，自动切换至 ${next.name}';
+          _log('$switchMsg\n原因：$reason');
+          _notifier.notifyFailover(switchMsg);
+          if (!controller.isClosed) {
+            controller.add(ModelFailed(model.name, reason ?? '无响应', next.name));
+          }
         }
       }
 
       if (!done) {
-        const msg = '解题失败：所有 AI 组合均未在限时内响应';
+        final msg =
+            '所有 AI 组合均失败：\n${failures.join('\n')}';
         _log(msg);
-        _notifier.notifyFailure(msg);
-        controller.add(const AiFailed(msg));
+        _notifier.notifyFailure('解题失败：所有 AI 组合均不可用');
+        if (!controller.isClosed) {
+          controller.add(AiFailed(msg));
+        }
       }
     } catch (e) {
       final msg = 'Failover 内部错误: $e';
@@ -123,17 +130,16 @@ class FailoverManager {
     }
   }
 
-  /// 单阶段尝试：监听子流，think 检测失败即取消并降级
-  Future<bool> _trySingleStage({
+  /// 单个模型尝试：监听子流，失败（超时/请求错误）即返回原因。
+  Future<(bool, String?)> _trySingleStage({
     required StreamController<AiStreamEvent> controller,
     required AiModelConfig model,
     required String? base64Image,
     required String userPrompt,
     required int thinkTimeoutSeconds,
-    required void Function(AiModelConfig? next) onFailover,
   }) async {
-    final subCompleter = Completer<bool>();
-    bool thinkingStarted = false;
+    final subCompleter = Completer<(bool, String?)>();
+    String? failureReason;
     StreamSubscription? sub;
 
     sub = _ai.callModelStream(
@@ -143,104 +149,35 @@ class FailoverManager {
       thinkTimeoutSeconds: thinkTimeoutSeconds,
     ).listen(
       (event) {
-        if (event is ThinkingStarted || event is ThinkingChunk) {
-          thinkingStarted = true;
-        }
         if (event is AiFailed) {
+          failureReason = event.reason;
           if (!subCompleter.isCompleted) {
-            subCompleter.complete(false);
+            subCompleter.complete((false, event.reason));
           }
           return;
         }
         if (event is AiDone) {
-          controller.add(event);
-          if (!subCompleter.isCompleted) subCompleter.complete(true);
-        } else {
-          controller.add(event);
+          if (!controller.isClosed) controller.add(event);
+          if (!subCompleter.isCompleted) subCompleter.complete((true, null));
+          return;
         }
+        if (!controller.isClosed) controller.add(event);
       },
       onError: (e) {
-        if (!subCompleter.isCompleted) subCompleter.complete(false);
+        failureReason = '$e';
+        if (!subCompleter.isCompleted) {
+          subCompleter.complete((false, '$e'));
+        }
       },
       onDone: () {
         if (!subCompleter.isCompleted) {
-          subCompleter.complete(thinkingStarted);
+          subCompleter.complete((false, failureReason ?? '连接中断'));
         }
       },
     );
 
-    final success = await subCompleter.future;
+    final result = await subCompleter.future;
     await sub.cancel();
-    // 如果未 think 起步，触发降级通知
-    if (!success && !thinkingStarted) {
-      onFailover(null);
-    }
-    return success;
-  }
-
-  /// 两阶段：OCR → 用 LaTeX 调 DeepSeek 求解
-  Future<bool> _tryTwoStage({
-    required StreamController<AiStreamEvent> controller,
-    required AiComboConfig combo,
-    required String base64Image,
-    required int thinkTimeoutSeconds,
-    required String userPrompt,
-  }) async {
-    if (combo.stages.length < 2) return false;
-    final ocr = combo.stages.first;
-    final solver = combo.stages[1];
-
-    // 阶段1：OCR
-    String latex;
-    try {
-      latex = await _ai.runOcrStage(
-        model: ocr,
-        base64Image: base64Image,
-      );
-    } catch (e) {
-      final msg = '${ocr.name} OCR 失败：$e';
-      _log(msg);
-      _notifier.notifyFailover(msg);
-      return false;
-    }
-    if (latex.trim().isEmpty) {
-      _log('${ocr.name} OCR 返回空');
-      return false;
-    }
-
-    // 阶段2：DeepSeek 求解
-    final subCompleter = Completer<bool>();
-    StreamSubscription? sub;
-    sub = _ai.callSolutionStage(
-      model: solver,
-      latexText: latex,
-      thinkTimeoutSeconds: thinkTimeoutSeconds,
-    ).listen(
-      (event) {
-        if (event is AiFailed) {
-          if (!subCompleter.isCompleted) subCompleter.complete(false);
-          return;
-        }
-        if (event is AiDone) {
-          controller.add(event);
-          if (!subCompleter.isCompleted) subCompleter.complete(true);
-        } else {
-          controller.add(event);
-        }
-      },
-      onError: (e) {
-        if (!subCompleter.isCompleted) subCompleter.complete(false);
-      },
-      onDone: () {
-        if (!subCompleter.isCompleted) subCompleter.complete(false);
-      },
-    );
-    final success = await subCompleter.future;
-    await sub.cancel();
-    if (!success) {
-      final msg = '${solver.name} 求解阶段失败';
-      _log(msg);
-    }
-    return success;
+    return result;
   }
 }

@@ -1,16 +1,17 @@
 /// 答案卡片 - 思谛 STDeel
 ///
-/// 每道题一个卡片。左侧竖向 4 个按钮：
-///   - 重答（蓝色 #4f7cff）
-///   - 疑问（黄色 #f5a623）
-///   - 错误（红色 #e74c3c）
-///   - 正确（绿色 #00b894）
+/// 液态玻璃卡片。左侧竖向 4 个按钮：
+///   - 重答（蓝）
+///   - 疑问（黄）
+///   - 错误（红）
+///   - 正确（绿）
 /// 右侧：题目 + 知识点标签 + 答案 + 解答过程（LaTeX 渲染）
 library;
 
 import 'package:flutter/material.dart';
 
 import '../models/solve_result.dart';
+import 'glass.dart';
 import 'latex_renderer.dart';
 
 class AnswerCard extends StatelessWidget {
@@ -35,33 +36,33 @@ class AnswerCard extends StatelessWidget {
   final String feedback; // none | correct | wrong
   final bool isLoading;
 
-  static const _colorRetry = Color(0xFF4F7CFF);
-  static const _colorQuestion = Color(0xFFF5A623);
-  static const _colorWrong = Color(0xFFE74C3C);
-  static const _colorCorrect = Color(0xFF00B894);
+  static const _colorRetry = G.accent;
+  static const _colorQuestion = G.amber;
+  static const _colorWrong = G.coral;
+  static const _colorCorrect = G.mint;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return GlassCard(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 左侧 4 个竖向按钮
-              _buildButtonColumn(),
-              const VerticalDivider(
-                  width: 1, color: Color(0xFFE5E5E5)),
-              const SizedBox(width: 12),
-              // 右侧内容
-              Expanded(
-                child: _buildContent(context),
-              ),
-            ],
-          ),
+      padding: const EdgeInsets.all(12),
+      radius: 20,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 左侧 4 个竖向按钮
+            _buildButtonColumn(),
+            Container(
+              width: 1,
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              color: G.glassBorder,
+            ),
+            // 右侧内容
+            Expanded(
+              child: _buildContent(context),
+            ),
+          ],
         ),
       ),
     );
@@ -75,21 +76,21 @@ class AnswerCard extends StatelessWidget {
           _actionButton(
             label: '重答',
             color: _colorRetry,
-            icon: Icons.refresh,
+            icon: Icons.refresh_rounded,
             onTap: onRetry,
           ),
           const SizedBox(height: 8),
           _actionButton(
             label: '疑问',
             color: _colorQuestion,
-            icon: Icons.help_outline,
+            icon: Icons.help_outline_rounded,
             onTap: onAskDetailed,
           ),
           const SizedBox(height: 8),
           _actionButton(
             label: '错误',
             color: _colorWrong,
-            icon: Icons.close,
+            icon: Icons.close_rounded,
             selected: feedback == 'wrong',
             onTap: onMarkWrong,
           ),
@@ -97,7 +98,7 @@ class AnswerCard extends StatelessWidget {
           _actionButton(
             label: '正确',
             color: _colorCorrect,
-            icon: Icons.check,
+            icon: Icons.check_rounded,
             selected: feedback == 'correct',
             onTap: onMarkCorrect,
           ),
@@ -155,7 +156,7 @@ class AnswerCard extends StatelessWidget {
         Text(
           '题目 ${question.id > 0 ? '#${question.id} ' : ''}',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF888888),
+                color: G.textFaint,
               ),
         ),
         const SizedBox(height: 4),
@@ -167,24 +168,30 @@ class AnswerCard extends StatelessWidget {
             spacing: 6,
             runSpacing: 4,
             children: question.knowledgePoints
-                .map((kp) => Chip(
-                      label: Text(kp),
-                      labelStyle:
-                          const TextStyle(fontSize: 11, color: Colors.white),
-                      padding: EdgeInsets.zero,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      backgroundColor: const Color(0xFF4F7CFF),
+                .map((kp) => Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: G.accentDeep.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: G.accentDeep.withOpacity(0.5),
+                        ),
+                      ),
+                      child: Text(
+                        kp,
+                        style: const TextStyle(
+                            fontSize: 11, color: G.textPrimary),
+                      ),
                     ))
                 .toList(),
           ),
-        const Divider(height: 16),
+        Divider(height: 20, color: G.glassBorder.withOpacity(0.6)),
         // 答案
         const Text(
           '答案',
           style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF00B894),
-              fontWeight: FontWeight.w600),
+              fontSize: 12, color: G.mint, fontWeight: FontWeight.w600),
         ),
         LatexRenderer(text: question.answer),
         const SizedBox(height: 8),
@@ -192,9 +199,7 @@ class AnswerCard extends StatelessWidget {
         const Text(
           '解答过程',
           style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF4F7CFF),
-              fontWeight: FontWeight.w600),
+              fontSize: 12, color: G.accent, fontWeight: FontWeight.w600),
         ),
         LatexRenderer(text: question.solution),
         if (isLoading)
@@ -205,7 +210,7 @@ class AnswerCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '由 $modelName 提供  ·  置信度 ${(question.confidence * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+          style: const TextStyle(fontSize: 11, color: G.textFaint),
         ),
       ],
     );

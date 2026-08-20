@@ -1,30 +1,34 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+/// 基础冒烟测试 - 思谛 STDeel
+library;
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:steel/main.dart';
+import 'package:stdeel/models/ai_combo.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('AiCombo JSON 序列化往返', () {
+    final combo = AiCombo(
+      id: 'test-1',
+      name: 'Test',
+      baseUrl: 'https://api.example.com/v1/',
+      apiKey: 'sk-test',
+      modelId: 'test-model',
+      enabled: true,
+    );
+    final json = combo.toJson();
+    final restored = AiCombo.fromJson(json);
+    expect(restored.name, combo.name);
+    expect(restored.apiKey, combo.apiKey);
+    expect(restored.modelId, combo.modelId);
+    expect(restored.enabled, combo.enabled);
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('normalizeBaseUrl 补全协议并去尾部斜杠', () {
+    expect(normalizeBaseUrl('api.example.com/v1/'),
+        'https://api.example.com/v1');
+    expect(normalizeBaseUrl('https://api.example.com/v1/'),
+        'https://api.example.com/v1');
+    expect(normalizeBaseUrl('http://a.b/c//'), 'http://a.b/c');
+    expect(normalizeBaseUrl(''), '');
   });
 }

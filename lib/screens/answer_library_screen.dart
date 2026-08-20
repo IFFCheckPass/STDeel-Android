@@ -154,6 +154,12 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
                         itemBuilder: (context, i) {
                           final r = _rows[i];
                           return Card(
+                            color: Colors.white.withOpacity(0.05),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: const BorderSide(color: Color(0x29FFFFFF)),
+                            ),
                             child: ListTile(
                               title: Text(r.questionText,
                                   maxLines: 2,

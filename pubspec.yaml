@@ -1,7 +1,7 @@
 name: stdeel
 description: 思谛 STDeel - 拍照识题与 AI 解题学习软件
 publish_to: 'none'
-version: 1.0.0+1
+version: 0.2.0+2
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
@@ -22,6 +22,9 @@ dependencies:
 
   # 拍照/选图
   image_picker: ^1.0.7
+
+  # 图片裁切/旋转（纯 Dart 实现）
+  image: ^4.2.0
 
   # UI 组件
   flutter_gen_ai_chat_ui: ^2.0.0
@@ -51,6 +54,19 @@ dev_dependencies:
   drift_dev: ^2.16.0
   build_runner: ^2.4.0
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1
+
+# 应用图标生成：dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#141A33"
+  adaptive_icon_foreground: "assets/icon/app_icon_fg.png"
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/icon/

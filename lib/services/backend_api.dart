@@ -6,12 +6,19 @@
 ///   - 知识点掌握度 / 薄弱知识点
 ///   - 标准答案库上传 / 匹配
 ///   - 文件上传
+///
+/// URL 约定：[AppConfig.defaultBackendUrl] 与设置页输入的后端 URL 视为「完整 API 根」，
+/// 含协议、host 与到 API 根的全部前缀路径（如 `https://api.stdeel.com/api/v1`
+/// 或反代路径 `https://snserver.dpdns.org/stapi`）。本类只在其后追加资源名
+/// （如 `/solve-records`、`/users/register`），不再硬编码 `/api/v1`，以兼容
+/// 任意后端路由结构。
 library;
 
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
+import '../models/ai_combo.dart' show normalizeBaseUrl;
 
 class BackendApi {
   BackendApi({Dio? dio, SharedPreferences? prefs})
@@ -22,10 +29,15 @@ class BackendApi {
   SharedPreferences? _prefsCache;
 
   /// 后端 URL（首次访问时从 SharedPreferences 加载）
+  ///
+  /// 兜底规范化：补全 https://、去尾斜杠、保留子路径（如 /stapi），
+  /// 兼容用户直接输入 `snserver.dpdns.org/stapi` 这类历史数据。
   Future<String> _baseUrl() async {
     _prefsCache ??= await SharedPreferences.getInstance();
-    return _prefsCache!.getString(AppConfig.keyBackendUrl) ??
-        AppConfig.defaultBackendUrl;
+    final raw =
+        _prefsCache!.getString(AppConfig.keyBackendUrl) ??
+            AppConfig.defaultBackendUrl;
+    return normalizeBaseUrl(raw);
   }
 
   Future<String> _userId() async {
@@ -44,24 +56,15 @@ class BackendApi {
     await _prefsCache!.setString(AppConfig.keyBackendUrl, url);
   }
 
-  Future<void> setApiKeyCombo1(String key) async {
+  /// AI 组合列表（JSON 数组持久化）
+  Future<String?> getAiCombosJson() async {
     _prefsCache ??= await SharedPreferences.getInstance();
-    await _prefsCache!.setString(AppConfig.keyAiApiKeyCombo1, key);
+    return _prefsCache!.getString(AppConfig.keyAiCombos);
   }
 
-  Future<void> setApiKeyCombo2(String key) async {
+  Future<void> setAiCombosJson(String json) async {
     _prefsCache ??= await SharedPreferences.getInstance();
-    await _prefsCache!.setString(AppConfig.keyAiApiKeyCombo2, key);
-  }
-
-  Future<String?> getApiKeyCombo1() async {
-    _prefsCache ??= await SharedPreferences.getInstance();
-    return _prefsCache!.getString(AppConfig.keyAiApiKeyCombo1);
-  }
-
-  Future<String?> getApiKeyCombo2() async {
-    _prefsCache ??= await SharedPreferences.getInstance();
-    return _prefsCache!.getString(AppConfig.keyAiApiKeyCombo2);
+    await _prefsCache!.setString(AppConfig.keyAiCombos, json);
   }
 
   Future<int> getThinkTimeoutSeconds() async {
@@ -77,10 +80,10 @@ class BackendApi {
 
   Future<String> getBackendUrl() async => _baseUrl();
 
-  /// POST /api/v1/users/register
+  /// POST /users/register
   /// 首次启动自动注册，持久化返回的 user_id
   Future<String> registerUser() async {
-    final url = '${await _baseUrl()}/api/v1/users/register';
+    final url = '${await _baseUrl()}/users/register';
     try {
       final resp = await _dio.post<dynamic>(
         url,
@@ -94,9 +97,9 @@ class BackendApi {
     }
   }
 
-  /// POST /api/v1/solve-records — 上传解题记录
+  /// POST /solve-records — 上传解题记录
   Future<void> uploadSolveRecord(Map<String, dynamic> payload) async {
-    final url = '${await _baseUrl()}/api/v1/solve-records';
+    final url = '${await _baseUrl()}/solve-records';
     payload['user_id'] = await _userId();
     try {
       await _dio.post<dynamic>(url, data: payload);
@@ -105,10 +108,9 @@ class BackendApi {
     }
   }
 
-  /// PATCH /api/v1/solve-records/{id}/feedback
+  /// PATCH /solve-records/{id}/feedback
   Future<void> updateFeedback(int recordId, String feedback) async {
-    final url =
-        '${await _baseUrl()}/api/v1/solve-records/$recordId/feedback';
+    final url = '${await _baseUrl()}/solve-records/$recordId/feedback';
     try {
       await _dio.patch<dynamic>(
         url,
@@ -119,9 +121,9 @@ class BackendApi {
     }
   }
 
-  /// GET /api/v1/knowledge/mastery
+  /// GET /knowledge/mastery
   Future<List<Map<String, dynamic>>> fetchKnowledgeMastery() async {
-    final url = '${await _baseUrl()}/api/v1/knowledge/mastery';
+    final url = '${await _baseUrl()}/knowledge/mastery';
     try {
       final resp = await _dio.get<dynamic>(
         url,
@@ -134,9 +136,9 @@ class BackendApi {
     }
   }
 
-  /// GET /api/v1/knowledge/weak
+  /// GET /knowledge/weak
   Future<List<Map<String, dynamic>>> fetchWeakKnowledge() async {
-    final url = '${await _baseUrl()}/api/v1/knowledge/weak';
+    final url = '${await _baseUrl()}/knowledge/weak';
     try {
       final resp = await _dio.get<dynamic>(
         url,
@@ -149,9 +151,9 @@ class BackendApi {
     }
   }
 
-  /// POST /api/v1/answer-library — 上传标准答案
+  /// POST /answer-library — 上传标准答案
   Future<void> uploadAnswer(Map<String, dynamic> payload) async {
-    final url = '${await _baseUrl()}/api/v1/answer-library';
+    final url = '${await _baseUrl()}/answer-library';
     payload['user_id'] = await _userId();
     try {
       await _dio.post<dynamic>(url, data: payload);
@@ -160,13 +162,13 @@ class BackendApi {
     }
   }
 
-  /// POST /api/v1/answer-library/match — 后端 FTS5 匹配
+  /// POST /answer-library/match — 后端 FTS5 匹配
   /// 返回 {hit: bool, similarity: double, answer?: {...}}
   Future<Map<String, dynamic>> matchAnswer({
     required String questionText,
     required String questionHash,
   }) async {
-    final url = '${await _baseUrl()}/api/v1/answer-library/match';
+    final url = '${await _baseUrl()}/answer-library/match';
     try {
       final resp = await _dio.post<dynamic>(
         url,
@@ -182,9 +184,9 @@ class BackendApi {
     }
   }
 
-  /// POST /api/v1/files/upload — 上传图片
+  /// POST /files/upload — 上传图片
   Future<String> uploadImage(String localPath) async {
-    final url = '${await _baseUrl()}/api/v1/files/upload';
+    final url = '${await _baseUrl()}/files/upload';
     final form = FormData.fromMap({
       'user_id': await _userId(),
       'file': await MultipartFile.fromFile(localPath),
@@ -198,13 +200,25 @@ class BackendApi {
   }
 
   /// 连通性测试（设置页用）
+  ///
+  /// 访问后端根 host 的 `/healthz`（而非 API 前缀下的 healthz），
+  /// 用于判断「网络可达 + HTTP 服务存活」，与具体 API 路由结构无关。
+  /// 任何 2xx/3xx/4xx 响应都视为可达（说明 HTTP 服务起来了），
+  /// 仅网络错误或 5xx 视为不通。
   Future<bool> ping() async {
     try {
+      final base = await _baseUrl();
+      final uri = Uri.tryParse(base);
+      // 解析失败或无 host：直接访问 baseUrl 本身探测
+      final pingUrl = (uri == null || uri.host.isEmpty)
+          ? '$base/healthz'
+          : '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}/healthz';
       final resp = await _dio.get<dynamic>(
-        '${await _baseUrl()}/healthz',
+        pingUrl,
         options: Options(receiveTimeout: const Duration(seconds: 5)),
       );
-      return resp.statusCode == 200;
+      final code = resp.statusCode ?? 0;
+      return code >= 200 && code < 500;
     } catch (_) {
       return false;
     }

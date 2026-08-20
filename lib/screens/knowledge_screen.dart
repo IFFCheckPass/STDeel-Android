@@ -74,7 +74,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFFE74C3C))),
+                    color: Color(0xFFFF6B6B))),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -103,8 +103,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: const Text('至少需要 3 个知识点才能绘制雷达图'),
       );
@@ -117,32 +117,42 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           RadarDataSet(
             dataEntries: [for (final v in values) RadarEntry(value: v)],
             fillColor: const Color(0xFF4F7CFF).withOpacity(0.3),
-            borderColor: const Color(0xFF4F7CFF),
+            borderColor: const Color(0xFF7C9CFF),
           )
         ],
         titleTextStyle: const TextStyle(
-            fontSize: 11, color: Color(0xFF555555)),
+            fontSize: 11, color: Color(0xFF9AA3C7)),
         getTitle: (idx, angle) =>
             RadarChartTitle(text: _points[idx % n].name),
         tickCount: 4,
-        ticksTextStyle: const TextStyle(fontSize: 9, color: Color(0xFFAAAAAA)),
-        gridBorderData: BorderSide(color: Colors.grey.shade300),
+        ticksTextStyle: const TextStyle(fontSize: 9, color: Color(0xFF6B7399)),
+        gridBorderData: BorderSide(color: Colors.white.withOpacity(0.15)),
         radarBackgroundColor: Colors.transparent,
       )),
     );
   }
 
   Widget _buildPointRow(BuildContext context, KnowledgePoint p) {
-    final color = p.isWeak ? const Color(0xFFE74C3C) : const Color(0xFF00B894);
+    final color = p.isWeak ? const Color(0xFFFF6B6B) : const Color(0xFF00D9A6);
     return Card(
+      color: Colors.white.withOpacity(0.05),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0x29FFFFFF)),
+      ),
       child: ListTile(
         title: Text(p.name),
         subtitle: Text(
             '正确 ${p.correctCount} · 错误 ${p.wrongCount} · 正确率 ${(p.accuracy * 100).toStringAsFixed(0)}%'),
         trailing: ElevatedButton(
           onPressed: () => _generateVariant(context, p.name),
-          style: ElevatedButton.styleFrom(backgroundColor: color),
-          child: const Text('举一反三', style: TextStyle(color: Colors.white)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color.withOpacity(0.2),
+            foregroundColor: color,
+            side: BorderSide(color: color.withOpacity(0.5)),
+          ),
+          child: const Text('举一反三'),
         ),
         onTap: () => _showRelatedWrong(context, p.name),
       ),
@@ -186,12 +196,18 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   Future<void> _generateVariant(BuildContext context, String kp) async {
     final solve = context.read<SolveProvider>();
     final settings = context.read<SettingsProvider>();
+    final models = settings.buildModelChain();
+    if (models.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先到「设置 → AI 模型组合」配置可用模型')),
+      );
+      return;
+    }
     await solve.askDetailed(
       questionId: 0,
       questionText:
           '请基于「$kp」这一知识点，生成 3 道难度递进的变式题，并给出答案与解析。',
-      combo1ApiKey: settings.apiKeyCombo1,
-      combo2ApiKey: settings.apiKeyCombo2,
+      models: models,
       thinkTimeout: settings.thinkTimeout,
     );
     if (!context.mounted) return;
