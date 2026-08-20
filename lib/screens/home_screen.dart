@@ -11,6 +11,7 @@ import '../providers/solve_provider.dart';
 import '../widgets/glass.dart';
 import '../widgets/thinking_indicator.dart';
 import 'answer_library_screen.dart';
+import 'answer_screen.dart';
 import 'camera_screen.dart';
 import 'knowledge_screen.dart';
 import 'settings_screen.dart';
