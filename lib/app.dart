@@ -11,6 +11,7 @@ import 'data/database.dart';
 import 'providers/settings_provider.dart';
 import 'providers/solve_provider.dart';
 import 'screens/answer_screen.dart';
+import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/ai_service.dart';
 import 'services/backend_api.dart';
@@ -32,6 +33,7 @@ class StdeelApp extends StatelessWidget {
       home: const HomeScreen(),
       routes: {
         '/answer': (_) => const AnswerScreen(),
+        '/history': (_) => const HistoryScreen(),
       },
     );
   }

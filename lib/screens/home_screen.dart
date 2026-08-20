@@ -7,7 +7,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/settings_provider.dart';
 import '../providers/solve_provider.dart';
 import '../widgets/glass.dart';
 import '../widgets/thinking_indicator.dart';
@@ -155,6 +154,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderColor: G.glassBorder,
                       onPressed: () => _pickImage(context, fromCamera: false),
                     ),
+                    const SizedBox(height: 12),
+                    GlassPrimaryButton(
+                      icon: Icons.history,
+                      label: '历史记录',
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.12),
+                          Colors.white.withOpacity(0.06),
+                        ],
+                      ),
+                      borderColor: G.glassBorder,
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed('/history'),
+                    ),
                     const SizedBox(height: 28),
                     if (state.status == SolveStatus.thinking ||
                         state.status == SolveStatus.answering) ...[
@@ -233,28 +246,14 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => CameraScreen(initialCamera: fromCamera),
       ),
     );
-    if (picked == null) return;
+    if (picked == null || picked.isEmpty) return;
     if (!mounted) return;
-    final settings = context.read<SettingsProvider>();
-    final solve = context.read<SolveProvider>();
-
-    final models = settings.buildModelChain();
-    if (models.isEmpty) {
-      showGlassSnackBar(
-        context,
-        '请先到「设置 → AI 模型组合」填写 API Key 并启用组合',
-        error: true,
-      );
-      return;
-    }
-    await solve.solve(
-      imagePath: picked,
-      models: models,
-      thinkTimeout: settings.thinkTimeout,
+    // 立即进入 AnswerScreen，由其 initState 触发 solve
+    // 并就地展示流式思维链与答案——避免用户困在主页无反馈。
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AnswerScreen(imagePath: picked),
+      ),
     );
-    if (!mounted) return;
-    if (solve.state.status == SolveStatus.done) {
-      Navigator.of(context).pushNamed('/answer');
-    }
   }
 }

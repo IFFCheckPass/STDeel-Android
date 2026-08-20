@@ -3,6 +3,12 @@
 /// 整页可上下滚动；每道题一个 AnswerCard：
 ///   - 左侧 4 个按钮（竖向）：重答 / 疑问 / 错误 / 正确
 ///   - 右侧：题目 + 知识点标签 + 答案 + 解答过程（LaTeX）
+///
+/// 进入方式：
+///   1. 从首页拍照后 push（携带 [imagePath]）→ initState 自动触发 solve，
+///      就地展示流式思维链与答案，避免用户困在主页无反馈。
+///   2. 从历史记录页 push（不携带 imagePath）→ 直接展示 SolveProvider.state 中
+///      的当前结果，或从 drift 加载指定 recordId 的历史记录。
 library;
 
 import 'package:flutter/material.dart';
@@ -15,16 +21,95 @@ import '../widgets/answer_card.dart';
 import '../widgets/glass.dart';
 import '../widgets/thinking_indicator.dart';
 
-class AnswerScreen extends StatelessWidget {
-  const AnswerScreen({super.key});
+class AnswerScreen extends StatefulWidget {
+  const AnswerScreen({super.key, this.imagePath});
+
+  /// 非空时进入即触发一轮 solve（流式展示思维链 + 答案）。
+  final String? imagePath;
+
+  @override
+  State<AnswerScreen> createState() => _AnswerScreenState();
+}
+
+class _AnswerScreenState extends State<AnswerScreen> {
+  /// 流式期间自动滚动到底部
+  final _scrollCtrl = ScrollController();
+  bool _solvingTriggered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.imagePath != null && widget.imagePath!.isNotEmpty) {
+      // 等首帧渲染完毕再触发，让流式 UI 先就位
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startSolving());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  /// 进入页面后触发一轮 solve；触发一次即可，重答/疑问走 AnswerCard 内部按钮
+  Future<void> _startSolving() async {
+    if (!mounted || _solvingTriggered) return;
+    _solvingTriggered = true;
+    final settings = context.read<SettingsProvider>();
+    final solve = context.read<SolveProvider>();
+    final models = settings.buildModelChain();
+    if (models.isEmpty) {
+      showGlassSnackBar(
+        context,
+        '请先到「设置 → AI 模型组合」填写 API Key 并启用组合',
+        error: true,
+      );
+      return;
+    }
+    // 不 await：流式事件经 SolveProvider.notifyListeners 自动驱动 UI，
+    // 这里仅 fire 一次即可。
+    solve.solve(
+      imagePath: widget.imagePath!,
+      models: models,
+      thinkTimeout: settings.thinkTimeout,
+    );
+  }
+
+  void _maybeAutoScroll() {
+    if (!_scrollCtrl.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollCtrl.hasClients) return;
+      final max = _scrollCtrl.position.maxScrollExtent;
+      _scrollCtrl.animateTo(
+        max,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final solve = context.watch<SolveProvider>();
     final state = solve.state;
 
+    // 流式期间增量到达 → 滚到底部
+    if (state.status == SolveStatus.thinking ||
+        state.status == SolveStatus.answering) {
+      _maybeAutoScroll();
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('解题结果')),
+      appBar: AppBar(
+        title: const Text('解题结果'),
+        actions: [
+          IconButton(
+            tooltip: '历史记录',
+            icon: const Icon(Icons.history),
+            onPressed: () => Navigator.of(context).pushNamed('/history'),
+          ),
+        ],
+      ),
       body: _buildBody(context, state),
     );
   }
@@ -64,13 +149,29 @@ class AnswerScreen extends StatelessWidget {
     }
     final result = state.result;
     if (result == null || result.questions.isEmpty) {
-      return const Center(child: Text('暂无解题结果'));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.inbox_outlined, size: 56, color: G.textFaint),
+            const SizedBox(height: 12),
+            const Text('暂无解题结果', style: TextStyle(color: G.textSecondary)),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.history),
+              label: const Text('查看历史记录'),
+              onPressed: () => Navigator.of(context).pushNamed('/history'),
+            ),
+          ],
+        ),
+      );
     }
     return _buildResults(context, result.questions, state.currentModel);
   }
 
   Widget _buildStreaming(BuildContext context, SolveUiState state) {
     return SingleChildScrollView(
+      controller: _scrollCtrl,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -88,14 +189,36 @@ class AnswerScreen extends StatelessWidget {
             GlassCard(
               fillColor: G.accent.withOpacity(0.06),
               borderColor: G.accent.withOpacity(0.25),
-              child: SelectableText(
-                state.reasoningText,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: G.textSecondary,
-                  fontStyle: FontStyle.italic,
-                  height: 1.5,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.psychology_rounded,
+                          size: 14, color: G.accent),
+                      SizedBox(width: 6),
+                      Text(
+                        '思维链',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: G.accent,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    state.reasoningText,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: G.textSecondary,
+                      fontStyle: FontStyle.italic,
+                      height: 1.6,
+                    ),
+                  ),
+                ],
               ),
             ),
           if (state.status == SolveStatus.answering &&
@@ -103,9 +226,31 @@ class AnswerScreen extends StatelessWidget {
             GlassCard(
               fillColor: G.mint.withOpacity(0.06),
               borderColor: G.mint.withOpacity(0.25),
-              child: SelectableText(
-                state.answerText,
-                style: const TextStyle(height: 1.5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.chat_bubble_rounded,
+                          size: 14, color: G.mint),
+                      SizedBox(width: 6),
+                      Text(
+                        '回答',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: G.mint,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    state.answerText,
+                    style: const TextStyle(height: 1.6),
+                  ),
+                ],
               ),
             ),
         ],
@@ -119,6 +264,7 @@ class AnswerScreen extends StatelessWidget {
     String modelName,
   ) {
     return SingleChildScrollView(
+      controller: _scrollCtrl,
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
