@@ -34,12 +34,16 @@ class _CameraScreenState extends State<CameraScreen> {
         imageQuality: 85,
       );
       if (file != null && mounted) {
-        // 进入裁切/旋转编辑页（替换当前页，编辑结果直接返回主页）
-        final edited = await Navigator.of(context).pushReplacement<String, String>(
+        // 压入编辑页（保留本页），编辑完成 pop 回传最终图片路径
+        final edited = await Navigator.of(context).push<String>(
           MaterialPageRoute(builder: (_) => ImageEditScreen(imagePath: file.path)),
         );
         if (mounted && edited != null) {
+          // 编辑成功：把最终路径回传给首页，由首页跳转 AnswerScreen 触发解题
           Navigator.of(context).pop(edited);
+        } else if (mounted) {
+          // 用户取消编辑：停留在选图页，可重新选择
+          setState(() => _busy = false);
         }
       } else if (mounted) {
         // 用户取消选择

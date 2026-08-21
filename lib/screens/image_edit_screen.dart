@@ -2,7 +2,7 @@
 ///
 /// 拍照/选图后进入本页：
 ///   - 双指缩放 / 拖动图片调整取景
-///   - 中心裁切框（可选比例：原图 / 3:4 / 1:1 / 4:3）
+///   - 中心裁切框跟随图片原始比例（自由裁切，无比例预设）
 ///   - 左右旋转 90°
 ///   - 确认后在 isolate 中完成解码→旋转→裁切→JPEG 编码
 library;
@@ -17,22 +17,6 @@ import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 
 import '../widgets/glass.dart';
-
-/// Aspect 选项
-class _AspectOption {
-  const _AspectOption(this.label, this.ratio);
-  final String label;
-
-  /// null = 原图比例
-  final double? ratio;
-}
-
-const _aspectOptions = [
-  _AspectOption('原图', null),
-  _AspectOption('3:4', 3 / 4),
-  _AspectOption('1:1', 1.0),
-  _AspectOption('4:3', 4 / 3),
-];
 
 class ImageEditScreen extends StatefulWidget {
   const ImageEditScreen({super.key, required this.imagePath});
@@ -51,7 +35,6 @@ class _ImageEditScreenState extends State<ImageEditScreen> {
 
   final TransformationController _controller = TransformationController();
   int _quarterTurns = 0;
-  int _aspectIndex = 0;
 
   // 视口尺寸（LayoutBuilder 捕获）
   Size _viewportSize = Size.zero;
@@ -97,19 +80,14 @@ class _ImageEditScreenState extends State<ImageEditScreen> {
     return _quarterTurns % 2 == 0 ? Size(w, h) : Size(h, w);
   }
 
-  /// 裁切框（视口坐标，居中）
+  /// 裁切框（视口坐标，居中，跟随图片原始比例自由裁切）
   Rect _cropRect() {
     if (_viewportSize == Size.zero) return Rect.zero;
-    final option = _aspectOptions[_aspectIndex];
     final vw = _viewportSize.width;
     final vh = _viewportSize.height;
-    double ratio;
-    if (option.ratio == null) {
-      final rs = _rotatedSize;
-      ratio = rs.aspectRatio == 0 ? 0.75 : rs.aspectRatio;
-    } else {
-      ratio = option.ratio!;
-    }
+    // 始终以图片原始纵横比裁切，不锁定任何预设比例
+    final rs = _rotatedSize;
+    final ratio = rs.aspectRatio == 0 ? 0.75 : rs.aspectRatio;
     var w = vw * 0.86;
     var h = w / ratio;
     if (h > vh * 0.8) {
@@ -282,15 +260,7 @@ class _ImageEditScreenState extends State<ImageEditScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 比例选择
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                for (var i = 0; i < _aspectOptions.length; i++)
-                  _aspectChip(i),
-              ],
-            ),
-            const SizedBox(height: 10),
+            // 旋转控制 + 跳过 + 完成
             Row(
               children: [
                 // 左旋
@@ -327,35 +297,6 @@ class _ImageEditScreenState extends State<ImageEditScreen> {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _aspectChip(int index) {
-    final selected = _aspectIndex == index;
-    final option = _aspectOptions[index];
-    return GestureDetector(
-      onTap: () {
-        setState(() => _aspectIndex = index);
-        _scheduleFit();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? G.accentDeep.withOpacity(0.4) : G.glassFill,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? G.accent : G.glassBorder,
-          ),
-        ),
-        child: Text(
-          option.label,
-          style: TextStyle(
-            fontSize: 12,
-            color: selected ? G.textPrimary : G.textSecondary,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-          ),
         ),
       ),
     );
