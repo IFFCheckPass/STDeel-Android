@@ -27,12 +27,15 @@ class QuestionResult {
         confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
       );
 
-  final int id;
   final String content;
   final List<String> knowledgePoints;
   String answer;
   String solution;
   double confidence;
+
+  /// 记录 ID：AI 返回阶段通常为 0；解题被持久化后写回漂移(drift)主键，
+  /// 供重答/疑问/反馈命中同一历史记录。
+  int id;
 
   Map<String, dynamic> toJson() => {
         'id': id,

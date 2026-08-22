@@ -89,6 +89,14 @@ class $SolveRecordsTable extends SolveRecords
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('none'));
+  static const VerificationMeta _actionTypeMeta =
+      const VerificationMeta('actionType');
+  @override
+  late final GeneratedColumn<String> actionType = GeneratedColumn<String>(
+      'action_type', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('solve'));
   static const VerificationMeta _syncedMeta = const VerificationMeta('synced');
   @override
   late final GeneratedColumn<bool> synced = GeneratedColumn<bool>(
@@ -126,6 +134,7 @@ class $SolveRecordsTable extends SolveRecords
         tokensUsed,
         matched,
         userFeedback,
+        actionType,
         synced,
         imagePath,
         createdAt
@@ -189,6 +198,12 @@ class $SolveRecordsTable extends SolveRecords
           userFeedback.isAcceptableOrUnknown(
               data['user_feedback']!, _userFeedbackMeta));
     }
+    if (data.containsKey('action_type')) {
+      context.handle(
+          _actionTypeMeta,
+          actionType.isAcceptableOrUnknown(
+              data['action_type']!, _actionTypeMeta));
+    }
     if (data.containsKey('synced')) {
       context.handle(_syncedMeta,
           synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta));
@@ -230,6 +245,8 @@ class $SolveRecordsTable extends SolveRecords
           .read(DriftSqlType.bool, data['${effectivePrefix}matched'])!,
       userFeedback: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}user_feedback'])!,
+      actionType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}action_type'])!,
       synced: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}synced'])!,
       imagePath: attachedDatabase.typeMapping
@@ -257,6 +274,7 @@ class SolveRecordEntity extends DataClass
   final int tokensUsed;
   final bool matched;
   final String userFeedback;
+  final String actionType;
   final bool synced;
   final String imagePath;
   final DateTime createdAt;
@@ -271,6 +289,7 @@ class SolveRecordEntity extends DataClass
       required this.tokensUsed,
       required this.matched,
       required this.userFeedback,
+      required this.actionType,
       required this.synced,
       required this.imagePath,
       required this.createdAt});
@@ -287,6 +306,7 @@ class SolveRecordEntity extends DataClass
     map['tokens_used'] = Variable<int>(tokensUsed);
     map['matched'] = Variable<bool>(matched);
     map['user_feedback'] = Variable<String>(userFeedback);
+    map['action_type'] = Variable<String>(actionType);
     map['synced'] = Variable<bool>(synced);
     map['image_path'] = Variable<String>(imagePath);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -305,6 +325,7 @@ class SolveRecordEntity extends DataClass
       tokensUsed: Value(tokensUsed),
       matched: Value(matched),
       userFeedback: Value(userFeedback),
+      actionType: Value(actionType),
       synced: Value(synced),
       imagePath: Value(imagePath),
       createdAt: Value(createdAt),
@@ -325,6 +346,7 @@ class SolveRecordEntity extends DataClass
       tokensUsed: serializer.fromJson<int>(json['tokensUsed']),
       matched: serializer.fromJson<bool>(json['matched']),
       userFeedback: serializer.fromJson<String>(json['userFeedback']),
+      actionType: serializer.fromJson<String>(json['actionType']),
       synced: serializer.fromJson<bool>(json['synced']),
       imagePath: serializer.fromJson<String>(json['imagePath']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -344,6 +366,7 @@ class SolveRecordEntity extends DataClass
       'tokensUsed': serializer.toJson<int>(tokensUsed),
       'matched': serializer.toJson<bool>(matched),
       'userFeedback': serializer.toJson<String>(userFeedback),
+      'actionType': serializer.toJson<String>(actionType),
       'synced': serializer.toJson<bool>(synced),
       'imagePath': serializer.toJson<String>(imagePath),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -361,6 +384,7 @@ class SolveRecordEntity extends DataClass
           int? tokensUsed,
           bool? matched,
           String? userFeedback,
+          String? actionType,
           bool? synced,
           String? imagePath,
           DateTime? createdAt}) =>
@@ -375,6 +399,7 @@ class SolveRecordEntity extends DataClass
         tokensUsed: tokensUsed ?? this.tokensUsed,
         matched: matched ?? this.matched,
         userFeedback: userFeedback ?? this.userFeedback,
+        actionType: actionType ?? this.actionType,
         synced: synced ?? this.synced,
         imagePath: imagePath ?? this.imagePath,
         createdAt: createdAt ?? this.createdAt,
@@ -398,6 +423,9 @@ class SolveRecordEntity extends DataClass
       userFeedback: data.userFeedback.present
           ? data.userFeedback.value
           : this.userFeedback,
+      actionType: data.actionType.present
+          ? data.actionType.value
+          : this.actionType,
       synced: data.synced.present ? data.synced.value : this.synced,
       imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -417,6 +445,7 @@ class SolveRecordEntity extends DataClass
           ..write('tokensUsed: $tokensUsed, ')
           ..write('matched: $matched, ')
           ..write('userFeedback: $userFeedback, ')
+          ..write('actionType: $actionType, ')
           ..write('synced: $synced, ')
           ..write('imagePath: $imagePath, ')
           ..write('createdAt: $createdAt')
@@ -436,6 +465,7 @@ class SolveRecordEntity extends DataClass
       tokensUsed,
       matched,
       userFeedback,
+      actionType,
       synced,
       imagePath,
       createdAt);
@@ -453,6 +483,7 @@ class SolveRecordEntity extends DataClass
           other.tokensUsed == this.tokensUsed &&
           other.matched == this.matched &&
           other.userFeedback == this.userFeedback &&
+          other.actionType == this.actionType &&
           other.synced == this.synced &&
           other.imagePath == this.imagePath &&
           other.createdAt == this.createdAt);
@@ -469,6 +500,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
   final Value<int> tokensUsed;
   final Value<bool> matched;
   final Value<String> userFeedback;
+  final Value<String> actionType;
   final Value<bool> synced;
   final Value<String> imagePath;
   final Value<DateTime> createdAt;
@@ -483,6 +515,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     this.tokensUsed = const Value.absent(),
     this.matched = const Value.absent(),
     this.userFeedback = const Value.absent(),
+    this.actionType = const Value.absent(),
     this.synced = const Value.absent(),
     this.imagePath = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -498,6 +531,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     this.tokensUsed = const Value.absent(),
     this.matched = const Value.absent(),
     this.userFeedback = const Value.absent(),
+    this.actionType = const Value.absent(),
     this.synced = const Value.absent(),
     this.imagePath = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -513,6 +547,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     Expression<int>? tokensUsed,
     Expression<bool>? matched,
     Expression<String>? userFeedback,
+    Expression<String>? actionType,
     Expression<bool>? synced,
     Expression<String>? imagePath,
     Expression<DateTime>? createdAt,
@@ -528,6 +563,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
       if (tokensUsed != null) 'tokens_used': tokensUsed,
       if (matched != null) 'matched': matched,
       if (userFeedback != null) 'user_feedback': userFeedback,
+      if (actionType != null) 'action_type': actionType,
       if (synced != null) 'synced': synced,
       if (imagePath != null) 'image_path': imagePath,
       if (createdAt != null) 'created_at': createdAt,
@@ -545,6 +581,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
       Value<int>? tokensUsed,
       Value<bool>? matched,
       Value<String>? userFeedback,
+      Value<String>? actionType,
       Value<bool>? synced,
       Value<String>? imagePath,
       Value<DateTime>? createdAt}) {
@@ -559,6 +596,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
       tokensUsed: tokensUsed ?? this.tokensUsed,
       matched: matched ?? this.matched,
       userFeedback: userFeedback ?? this.userFeedback,
+      actionType: actionType ?? this.actionType,
       synced: synced ?? this.synced,
       imagePath: imagePath ?? this.imagePath,
       createdAt: createdAt ?? this.createdAt,
@@ -598,6 +636,9 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     if (userFeedback.present) {
       map['user_feedback'] = Variable<String>(userFeedback.value);
     }
+    if (actionType.present) {
+      map['action_type'] = Variable<String>(actionType.value);
+    }
     if (synced.present) {
       map['synced'] = Variable<bool>(synced.value);
     }
@@ -623,6 +664,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
           ..write('tokensUsed: $tokensUsed, ')
           ..write('matched: $matched, ')
           ..write('userFeedback: $userFeedback, ')
+          ..write('actionType: $actionType, ')
           ..write('synced: $synced, ')
           ..write('imagePath: $imagePath, ')
           ..write('createdAt: $createdAt')
@@ -1401,6 +1443,7 @@ typedef $$SolveRecordsTableCreateCompanionBuilder = SolveRecordsCompanion
   Value<int> tokensUsed,
   Value<bool> matched,
   Value<String> userFeedback,
+  Value<String> actionType,
   Value<bool> synced,
   Value<String> imagePath,
   Value<DateTime> createdAt,
@@ -1417,6 +1460,7 @@ typedef $$SolveRecordsTableUpdateCompanionBuilder = SolveRecordsCompanion
   Value<int> tokensUsed,
   Value<bool> matched,
   Value<String> userFeedback,
+  Value<String> actionType,
   Value<bool> synced,
   Value<String> imagePath,
   Value<DateTime> createdAt,
@@ -1461,6 +1505,9 @@ class $$SolveRecordsTableFilterComposer
 
   ColumnFilters<String> get userFeedback => $composableBuilder(
       column: $table.userFeedback, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get actionType => $composableBuilder(
+      column: $table.actionType, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get synced => $composableBuilder(
       column: $table.synced, builder: (column) => ColumnFilters(column));
@@ -1514,6 +1561,10 @@ class $$SolveRecordsTableOrderingComposer
       column: $table.userFeedback,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get actionType => $composableBuilder(
+      column: $table.actionType,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get synced => $composableBuilder(
       column: $table.synced, builder: (column) => ColumnOrderings(column));
 
@@ -1563,6 +1614,9 @@ class $$SolveRecordsTableAnnotationComposer
   GeneratedColumn<String> get userFeedback => $composableBuilder(
       column: $table.userFeedback, builder: (column) => column);
 
+  GeneratedColumn<String> get actionType => $composableBuilder(
+      column: $table.actionType, builder: (column) => column);
+
   GeneratedColumn<bool> get synced =>
       $composableBuilder(column: $table.synced, builder: (column) => column);
 
@@ -1609,6 +1663,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             Value<int> tokensUsed = const Value.absent(),
             Value<bool> matched = const Value.absent(),
             Value<String> userFeedback = const Value.absent(),
+            Value<String> actionType = const Value.absent(),
             Value<bool> synced = const Value.absent(),
             Value<String> imagePath = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -1624,6 +1679,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             tokensUsed: tokensUsed,
             matched: matched,
             userFeedback: userFeedback,
+            actionType: actionType,
             synced: synced,
             imagePath: imagePath,
             createdAt: createdAt,
@@ -1639,6 +1695,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             Value<int> tokensUsed = const Value.absent(),
             Value<bool> matched = const Value.absent(),
             Value<String> userFeedback = const Value.absent(),
+            Value<String> actionType = const Value.absent(),
             Value<bool> synced = const Value.absent(),
             Value<String> imagePath = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -1654,6 +1711,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             tokensUsed: tokensUsed,
             matched: matched,
             userFeedback: userFeedback,
+            actionType: actionType,
             synced: synced,
             imagePath: imagePath,
             createdAt: createdAt,

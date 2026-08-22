@@ -1,8 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 联网：AI API 请求 / flutter_tex 本地渲染服务 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="思谛"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -31,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase._();
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -44,6 +44,15 @@ class AppDatabase extends _$AppDatabase {
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_solve_feedback ON solve_records(user_feedback)',
           );
+        },
+        onUpgrade: (m, from, to) async {
+          // v1 -> v2：为四色状态标记新增 actionType 字段
+          if (from < 2) {
+            await m.addColumn(
+              solveRecords,
+              solveRecords.actionType,
+            );
+          }
         },
       );
 }

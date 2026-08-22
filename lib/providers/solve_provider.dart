@@ -190,7 +190,8 @@ class SolveProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 写入 drift（每题一行），返回插入的记录 ID 列表
+  /// 写入 drift（每题一行），返回插入的记录 ID 列表。
+  /// 同时把数据库主键写回 [QuestionResult.id]，使后续重答/疑问/反馈能命中同一历史记录。
   Future<List<int>> _persistResult(SolveResult result) async {
     final ids = <int>[];
     for (final q in result.questions) {
@@ -205,9 +206,11 @@ class SolveProvider extends ChangeNotifier {
           tokensUsed: Value(result.tokensUsed),
           matched: const Value(false),
           userFeedback: const Value('none'),
+          actionType: const Value('solve'),
           imagePath: Value(result.imagePath),
         ),
       );
+      q.id = id; // 写回主键
       ids.add(id);
     }
     return ids;
@@ -296,6 +299,7 @@ class SolveProvider extends ChangeNotifier {
     required List<AiModelConfig> models,
     required int thinkTimeout,
     required String startLabel,
+    String actionType = 'retry',
     bool overwriteRecord = true,
   }) async {
     if (models.isEmpty) {
@@ -318,7 +322,7 @@ class SolveProvider extends ChangeNotifier {
           userPrompt: userPrompt,
           thinkTimeoutSeconds: thinkTimeout,
         )
-        .listen((event) {
+        .listen((event) async {
       if (event is AiDone) {
         final q = event.result.questions.isNotEmpty
             ? event.result.questions.first
@@ -328,15 +332,14 @@ class SolveProvider extends ChangeNotifier {
           result: event.result,
           currentModel: event.result.aiModel,
         );
-        if (q != null && overwriteRecord && questionId > 0) {
-          _db.solveRecordDao.overwriteAnswer(
-            id: questionId,
-            answer: q.answer,
-            solution: q.solution,
-            aiModel: event.result.aiModel,
-            latencyMs: event.result.latencyMs,
-            tokensUsed: event.result.tokensUsed,
-            knowledgePoints: jsonEncode(q.knowledgePoints),
+        if (q != null && overwriteRecord) {
+          // 优先用调用方给定的 questionId（除非它 <= 0，则回退 AI 返回的 id）
+          final effectiveId = questionId > 0 ? questionId : q.id;
+          await _commitTextResult(
+            q,
+            event.result,
+            dbId: effectiveId,
+            actionType: actionType,
           );
         }
         notifyListeners();
@@ -348,6 +351,46 @@ class SolveProvider extends ChangeNotifier {
       await sub.asFuture();
     } catch (_) {}
     await sub.cancel();
+  }
+
+  /// 重答/疑问结果落库：已有记录则覆盖，否则新建一条，确保能进入历史记录；
+  /// 并把最终主键写回 [QuestionResult.id]。
+  Future<void> _commitTextResult(
+    QuestionResult q,
+    SolveResult result, {
+    required int dbId,
+    required String actionType,
+  }) async {
+    if (dbId > 0) {
+      await _db.solveRecordDao.overwriteAnswer(
+        id: dbId,
+        answer: q.answer,
+        solution: q.solution,
+        aiModel: result.aiModel,
+        latencyMs: result.latencyMs,
+        tokensUsed: result.tokensUsed,
+        knowledgePoints: jsonEncode(q.knowledgePoints),
+        actionType: actionType,
+      );
+      q.id = dbId;
+    } else {
+      final newId = await _db.solveRecordDao.insert(
+        SolveRecordsCompanion.insert(
+          questionText: q.content,
+          answer: Value(q.answer),
+          solution: Value(q.solution),
+          knowledgePoints: Value(jsonEncode(q.knowledgePoints)),
+          aiModel: Value(result.aiModel),
+          latencyMs: Value(result.latencyMs),
+          tokensUsed: Value(result.tokensUsed),
+          matched: const Value(false),
+          userFeedback: const Value('none'),
+          actionType: Value(actionType),
+          imagePath: const Value(''),
+        ),
+      );
+      q.id = newId;
+    }
   }
 
   /// "重答"按钮：以高温度重调 AI 覆盖答案
@@ -363,6 +406,7 @@ class SolveProvider extends ChangeNotifier {
         models: models,
         thinkTimeout: thinkTimeout,
         startLabel: '重答中',
+        actionType: 'retry',
       );
 
   /// "疑问"按钮：附加详细分步指令
@@ -378,6 +422,7 @@ class SolveProvider extends ChangeNotifier {
         models: models,
         thinkTimeout: thinkTimeout,
         startLabel: '解答中',
+        actionType: 'detail',
       );
 
   /// 计算题目哈希（与本地答案库一致）

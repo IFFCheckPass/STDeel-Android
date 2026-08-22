@@ -28,6 +28,11 @@ class SolveRecords extends Table {
   TextColumn get userFeedback => text().withDefault(
     const Constant('none'),
   )(); // none | correct | wrong
+  // 最近一次动作类型（按题目状态四色标记）：
+  // solve（初始解题,中性）/ retry（重答,蓝）/ detail（疑问,黄）/ correct（正确,绿）/ wrong（错误,红）
+  TextColumn get actionType => text().withDefault(
+    const Constant('solve'),
+  )();
   BoolColumn get synced =>
       boolean().withDefault(const Constant(false))(); // 是否已同步至后端
   TextColumn get imagePath => text().withDefault(const Constant(''))();

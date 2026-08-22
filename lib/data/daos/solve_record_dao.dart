@@ -28,11 +28,12 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
           .get();
 
-  /// 更新单条记录的反馈（同时标记为未同步）
+  /// 更新单条记录的反馈（同时标记为未同步，并记录最近动作类型用于四色标记）
   Future<int> updateFeedback(int id, String feedback) =>
       (update(solveRecords)..where((t) => t.id.equals(id)))
           .write(SolveRecordsCompanion(
         userFeedback: Value(feedback),
+        actionType: Value(feedback),
         synced: const Value(false),
       ));
 
@@ -45,6 +46,7 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
     required int latencyMs,
     required int tokensUsed,
     String? knowledgePoints,
+    String actionType = 'retry',
   }) =>
       (update(solveRecords)..where((t) => t.id.equals(id))).write(
         SolveRecordsCompanion(
@@ -57,6 +59,7 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
               knowledgePoints == null ? const Value.absent() : Value(knowledgePoints),
           matched: const Value(false),
           userFeedback: const Value('none'),
+          actionType: Value(actionType),
           synced: const Value(false),
         ),
       );

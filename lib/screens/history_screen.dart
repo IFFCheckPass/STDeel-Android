@@ -125,20 +125,32 @@ class _HistoryCardState extends State<_HistoryCard> {
     return const [];
   }
 
+  /// 按题目状态返回四色标记（颜色 / 图标 / 文案）：
+  /// correct=绿(正确) / wrong=红(错误) / retry=蓝(重答) / detail=黄(疑问) / 其余中性(解题)
+  (Color, IconData, String) _statusStyle(String action, String feedback) {
+    if (feedback == 'correct') {
+      return (G.mint, Icons.check_circle_rounded, '正确');
+    }
+    if (feedback == 'wrong') {
+      return (G.coral, Icons.cancel_rounded, '错误');
+    }
+    switch (action) {
+      case 'retry':
+        return (G.accent, Icons.refresh_rounded, '重答');
+      case 'detail':
+        return (G.amber, Icons.help_outline_rounded, '疑问');
+      case 'solve':
+      default:
+        return (G.textFaint, Icons.auto_awesome_rounded, '解题');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = widget.record;
-    final feedback = r.userFeedback;
-    final fbColor = feedback == 'correct'
-        ? G.mint
-        : feedback == 'wrong'
-            ? G.coral
-            : G.textFaint;
-    final fbIcon = feedback == 'correct'
-        ? Icons.check_circle_rounded
-        : feedback == 'wrong'
-            ? Icons.cancel_rounded
-            : Icons.help_outline;
+    // 四色状态标记：正确=绿 / 错误=红 / 疑问(解答)=黄 / 重答=蓝 / 其余(初始解题)=中性
+    final (Color fbColor, IconData fbIcon, String statusLabel) =
+        _statusStyle(r.actionType, r.userFeedback);
 
     return GlassCard(
       padding: EdgeInsets.zero,
@@ -155,6 +167,15 @@ class _HistoryCardState extends State<_HistoryCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(fbIcon, size: 18, color: fbColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    statusLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: fbColor,
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
