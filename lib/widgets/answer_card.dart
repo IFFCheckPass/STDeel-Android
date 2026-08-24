@@ -210,7 +210,7 @@ class AnswerCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '由 $modelName 提供  ·  置信度 ${(question.confidence * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(fontSize: 11, color: G.textFaint),
+          style: TextStyle(fontSize: 11, color: G.textFaint),
         ),
       ],
     );

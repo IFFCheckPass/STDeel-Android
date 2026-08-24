@@ -28,8 +28,16 @@ class StdeelApp extends StatelessWidget {
     return MaterialApp(
       title: '思谛',
       debugShowCheckedModeBanner: false,
-      theme: G.theme(),
-      builder: (context, child) => GlassBackground(child: child),
+      theme: G.theme(Brightness.light),
+      darkTheme: G.theme(Brightness.dark),
+      // 跟随系统深浅色
+      themeMode: ThemeMode.system,
+      builder: (context, child) {
+        // 同步当前平台亮度到设计令牌，页面 build 时据此取浅/深配色
+        G.brightness =
+            MediaQuery.maybeOf(context)?.platformBrightness ?? G.brightness;
+        return GlassBackground(child: child);
+      },
       home: const HomeScreen(),
       routes: {
         '/answer': (_) => const AnswerScreen(),

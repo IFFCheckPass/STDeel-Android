@@ -15,28 +15,41 @@ import 'package:flutter/material.dart';
 class G {
   G._();
 
-  // 背景渐变（深空）
-  static const Color bgTop = Color(0xFF0F1326);
-  static const Color bgMid = Color(0xFF1A2040);
-  static const Color bgBottom = Color(0xFF251E4E);
+  /// 当前亮暗模式，由应用入口根据系统/主题同步。
+  /// 浅/深两套配色都从这里取值，页面 build 时实时跟随系统。
+  static Brightness brightness = Brightness.dark;
 
-  // 主题色
+  static bool get _light => brightness == Brightness.light;
+
+  // 背景渐变（随系统深浅）
+  static Color get bgTop => _light ? const Color(0xFFF7F8FC) : const Color(0xFF0F1326);
+  static Color get bgMid => _light ? const Color(0xFFEDF1FF) : const Color(0xFF1A2040);
+  static Color get bgBottom => _light ? const Color(0xFFE3E9FB) : const Color(0xFF251E4E);
+
+  // 主题色（品牌色，深浅通用，保留 const）
   static const Color accent = Color(0xFF7C9CFF);
   static const Color accentDeep = Color(0xFF4F7CFF);
   static const Color mint = Color(0xFF00D9A6);
   static const Color coral = Color(0xFFFF6B6B);
   static const Color amber = Color(0xFFFFC24B);
 
-  // 文字
-  static const Color textPrimary = Color(0xFFEFF2FF);
-  static const Color textSecondary = Color(0xFF9AA3C7);
-  static const Color textFaint = Color(0xFF6B7399);
+  // 文字（随系统深浅）
+  static Color get textPrimary =>
+      _light ? const Color(0xFF1B2340) : const Color(0xFFEFF2FF);
+  static Color get textSecondary =>
+      _light ? const Color(0xFF4E5778) : const Color(0xFF9AA3C7);
+  static Color get textFaint =>
+      _light ? const Color(0xFF7C86A8) : const Color(0xFF6B7399);
 
-  // 玻璃
-  static const Color glassFill = Color(0x14FFFFFF); // 8% 白
-  static const Color glassFillStrong = Color(0x24FFFFFF); // 14% 白
-  static const Color glassBorder = Color(0x29FFFFFF); // 16% 白
-  static const Color glassHighlight = Color(0x40FFFFFF); // 25% 白（高光描边）
+  // 玻璃（随系统深浅：浅色下玻璃偏不透明白以承载深色文字）
+  static Color get glassFill =>
+      _light ? const Color(0xBFFFFFFF) : const Color(0x14FFFFFF);
+  static Color get glassFillStrong =>
+      _light ? const Color(0xD9FFFFFF) : const Color(0x24FFFFFF);
+  static Color get glassBorder =>
+      _light ? const Color(0x2E24304F) : const Color(0x29FFFFFF);
+  static Color get glassHighlight =>
+      _light ? const Color(0x1AFFFFFF) : const Color(0x40FFFFFF);
 
   static const double radius = 22;
   static const double blur = 18;
@@ -47,23 +60,25 @@ class G {
         colors: [accentDeep, Color(0xFF8A6CFF)],
       );
 
-  static ThemeData theme() {
+  static ThemeData theme(Brightness brightness) {
+    G.brightness = brightness;
+    final light = brightness == Brightness.light;
     final base = ThemeData(
-      brightness: Brightness.dark,
+      brightness: brightness,
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
         seedColor: accentDeep,
-        brightness: Brightness.dark,
+        brightness: brightness,
       ).copyWith(
         primary: accent,
         secondary: mint,
-        surface: const Color(0xFF1A2040),
+        surface: light ? const Color(0xFFFFFFFF) : const Color(0xFF1A2040),
       ),
     );
     return base.copyWith(
       scaffoldBackgroundColor: Colors.transparent,
       canvasColor: Colors.transparent,
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         centerTitle: true,
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -82,25 +97,26 @@ class G {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xE61A2040),
-        contentTextStyle: const TextStyle(color: textPrimary, fontSize: 14),
+        backgroundColor:
+            light ? const Color(0xF2FFFFFF) : const Color(0xE61A2040),
+        contentTextStyle: TextStyle(color: textPrimary, fontSize: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: glassBorder),
+          side: BorderSide(color: glassBorder),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: glassFill,
-        hintStyle: const TextStyle(color: textFaint),
-        labelStyle: const TextStyle(color: textSecondary),
+        hintStyle: TextStyle(color: textFaint),
+        labelStyle: TextStyle(color: textSecondary),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: glassBorder),
+          borderSide: BorderSide(color: glassBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: glassBorder),
+          borderSide: BorderSide(color: glassBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -120,7 +136,7 @@ class G {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: accent,
-          side: const BorderSide(color: glassBorder),
+          side: BorderSide(color: glassBorder),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -137,10 +153,13 @@ class G {
         trackColor: WidgetStateProperty.resolveWith((states) =>
             states.contains(WidgetState.selected)
                 ? accentDeep
-                : const Color(0xFF2A3055)),
+                : light
+                    ? const Color(0xFFCBD3E8)
+                    : const Color(0xFF2A3055)),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: const Color(0xD90F1326),
+        backgroundColor:
+            light ? const Color(0xE6FFFFFF) : const Color(0xD90F1326),
         surfaceTintColor: Colors.transparent,
         indicatorColor: accentDeep.withOpacity(0.35),
         labelTextStyle: WidgetStateProperty.resolveWith((states) =>
@@ -160,39 +179,42 @@ class G {
             )),
       ),
       chipTheme: base.chipTheme.copyWith(
-        backgroundColor: accentDeep.withOpacity(0.25),
-        labelStyle: const TextStyle(fontSize: 11, color: textPrimary),
-        side: BorderSide(color: accentDeep.withOpacity(0.5)),
+        backgroundColor: accentDeep.withOpacity(light ? 0.18 : 0.25),
+        labelStyle: TextStyle(fontSize: 11, color: textPrimary),
+        side: BorderSide(color: accentDeep.withOpacity(light ? 0.4 : 0.5)),
       ),
       progressIndicatorTheme:
           const ProgressIndicatorThemeData(color: accent),
-      dividerTheme: const DividerThemeData(color: glassBorder),
-      listTileTheme: const ListTileThemeData(
+      dividerTheme: DividerThemeData(color: glassBorder),
+      listTileTheme: ListTileThemeData(
         iconColor: textSecondary,
         textColor: textPrimary,
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: const Color(0xF01A2040),
+        color: light ? const Color(0xFBFFFFFF) : const Color(0xF01A2040),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: glassBorder),
+          side: BorderSide(color: glassBorder),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: const Color(0xF01A2040),
+        backgroundColor:
+            light ? const Color(0xFBFFFFFF) : const Color(0xF01A2040),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: glassBorder),
+          side: BorderSide(color: glassBorder),
         ),
-        titleTextStyle: const TextStyle(
+        titleTextStyle: TextStyle(
           color: textPrimary,
           fontSize: 17,
           fontWeight: FontWeight.w600,
         ),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Color(0xF0141834),
-        modalBackgroundColor: Color(0xF0141834),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor:
+            light ? const Color(0xF5FFFFFF) : const Color(0xF0141834),
+        modalBackgroundColor:
+            light ? const Color(0xF5FFFFFF) : const Color(0xF0141834),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
@@ -237,12 +259,12 @@ class _GlassBackgroundState extends State<GlassBackground>
       builder: (context, child) {
         final t = Curves.easeInOut.transform(_orbCtrl.value);
         return Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [G.bgTop, G.bgMid, G.bgBottom],
-              stops: [0, 0.55, 1],
+              stops: const [0, 0.55, 1],
             ),
           ),
           child: Stack(
@@ -293,8 +315,8 @@ class GlassCard extends StatelessWidget {
     this.margin,
     this.radius = G.radius,
     this.blurSigma = G.blur,
-    this.fillColor = G.glassFill,
-    this.borderColor = G.glassBorder,
+    this.fillColor,
+    this.borderColor,
     this.glowColor,
     this.borderRadius,
     this.clipBehavior,
@@ -324,9 +346,9 @@ class GlassCard extends StatelessWidget {
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: fillColor,
+              color: fillColor ?? G.glassFill,
               borderRadius: br,
-              border: Border.all(color: borderColor),
+              border: Border.all(color: borderColor ?? G.glassBorder),
               gradient: RadialGradient(
                 center: Alignment.topLeft,
                 radius: 1.6,
@@ -378,7 +400,7 @@ class GlassSectionTitle extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
               color: G.textPrimary,
@@ -402,7 +424,7 @@ class GlassPrimaryButton extends StatelessWidget {
     required this.onPressed,
     this.height = 58,
     this.gradient,
-    this.borderColor = G.glassHighlight,
+    this.borderColor,
   });
 
   final IconData icon;
@@ -437,7 +459,9 @@ class GlassPrimaryButton extends StatelessWidget {
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
-              side: BorderSide(color: borderColor.withOpacity(0.6)),
+              side: BorderSide(
+                color: (borderColor ?? G.glassHighlight).withOpacity(0.6),
+              ),
             ),
             textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),

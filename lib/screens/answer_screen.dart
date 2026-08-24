@@ -153,9 +153,9 @@ class _AnswerScreenState extends State<AnswerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.inbox_outlined, size: 56, color: G.textFaint),
+            Icon(Icons.inbox_outlined, size: 56, color: G.textFaint),
             const SizedBox(height: 12),
-            const Text('暂无解题结果', style: TextStyle(color: G.textSecondary)),
+            Text('暂无解题结果', style: TextStyle(color: G.textSecondary)),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               icon: const Icon(Icons.history),

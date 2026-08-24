@@ -104,7 +104,7 @@ class _CameraScreenState extends State<CameraScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     '拍照或选择图片，AI 将直接解题',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: G.textSecondary, letterSpacing: 1),

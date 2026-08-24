@@ -305,8 +305,7 @@ class _ComboEditScreenState extends State<ComboEditScreen> {
                       ),
                       Text(
                         '${models.length} 个模型',
-                        style:
-                            const TextStyle(fontSize: 12, color: G.textFaint),
+                        style: TextStyle(fontSize: 12, color: G.textFaint),
                       ),
                     ],
                   ),

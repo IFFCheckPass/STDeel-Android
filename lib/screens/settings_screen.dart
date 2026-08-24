@@ -54,7 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ===== AI 模型组合 =====
           GlassSectionTitle('AI 模型组合', trailing: Text(
             '${s.availableCombos.length}/${s.combos.length} 可用',
-            style: const TextStyle(fontSize: 12, color: G.textSecondary),
+            style: TextStyle(fontSize: 12, color: G.textSecondary),
           )),
           GlassCard(
             padding: const EdgeInsets.all(12),
@@ -66,7 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Expanded(
                   child: Text(
                     '解题时按顺序自动尝试启用的组合，超时或失败将自动切换下一个。长按卡片可拖动排序。',
-                    style: const TextStyle(fontSize: 12, color: G.textSecondary, height: 1.5),
+                    style: TextStyle(fontSize: 12, color: G.textSecondary, height: 1.5),
                   ),
                 ),
               ],
@@ -77,9 +77,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             GlassCard(
               child: Column(
                 children: [
-                  const Icon(Icons.cloud_off, color: G.textFaint, size: 40),
+                  Icon(Icons.cloud_off, color: G.textFaint, size: 40),
                   const SizedBox(height: 8),
-                  const Text('暂无组合，点击下方按钮添加', style: TextStyle(color: G.textSecondary)),
+                  Text('暂无组合，点击下方按钮添加', style: TextStyle(color: G.textSecondary)),
                   TextButton(
                     onPressed: _addCombo,
                     child: const Text('添加组合'),
@@ -156,7 +156,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChangeEnd: (v) =>
                       showGlassSnackBar(context, '已保存：超时 ${v.round()} 秒', success: true),
                 ),
-                const Text(
+                Text(
                   '模型在此时长内未输出任何内容（含思考与回答）时，自动切换下一组合。API 响应慢可适当调大。',
                   style: TextStyle(fontSize: 12, color: G.textFaint, height: 1.5),
                 ),
@@ -338,7 +338,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: Text(p['name']!),
                 subtitle: p['baseUrl']!.isEmpty ? null : Text(
                   p['baseUrl']!,
-                  style: const TextStyle(fontSize: 12, color: G.textFaint),
+                  style: TextStyle(fontSize: 12, color: G.textFaint),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -454,7 +454,7 @@ class _ComboTile extends StatelessWidget {
                         combo.modelId.isEmpty ? '未设置模型' : combo.modelId,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: G.textSecondary),
+                        style: TextStyle(fontSize: 12, color: G.textSecondary),
                       ),
                     ],
                   ),

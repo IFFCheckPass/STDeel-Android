@@ -74,11 +74,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.inbox_outlined, size: 64, color: G.textFaint),
+                  Icon(Icons.inbox_outlined, size: 64, color: G.textFaint),
                   const SizedBox(height: 12),
-                  const Text('还没有解题记录', style: TextStyle(color: G.textSecondary)),
+                  Text('还没有解题记录', style: TextStyle(color: G.textSecondary)),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     '拍照解题后，记录会自动保存到这里',
                     style: TextStyle(fontSize: 12, color: G.textFaint),
                   ),
