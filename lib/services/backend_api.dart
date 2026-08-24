@@ -106,6 +106,62 @@ class BackendApi {
     }
   }
 
+  // ==================== 账号绑定（隐藏预埋） ====================
+  // 目标：账号不变、数据不变。用户可手动设置 username，若后端存在对应
+  // 用户则复用该 user_id；并可将本机 api-key 上传后端实现跨端同步。
+  // 后端 api-key 同步接口尚未对接，此功能由 AppConfig.kAccountBindingEnabled
+  // 控制（默认关闭隐藏），待适配完成后再开放 UI，避免数据污染。
+
+  /// 读取本地持久化的 username（可能为空）
+  Future<String?> getUsername() async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    return _prefsCache!.getString(AppConfig.keyUsername);
+  }
+
+  /// 本地持久化 username
+  Future<void> setUsername(String username) async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    await _prefsCache!.setString(AppConfig.keyUsername, username.trim());
+  }
+
+  /// 读取本地持久化的用户 api-key（用于跨端同步，尚未对接后端）
+  Future<String?> getUserApiKey() async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    return _prefsCache!.getString(AppConfig.keyUserApiKey);
+  }
+
+  /// 本地持久化用户 api-key
+  Future<void> setUserApiKey(String apiKey) async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    await _prefsCache!.setString(AppConfig.keyUserApiKey, apiKey.trim());
+  }
+
+  /// 按 username 获取后端 user_id（后端「仅传 username → 按 username 找或创建」）。
+  ///
+  /// 成功后将 user_id 持久化，后续所有数据都归属该用户。
+  /// 返回 true 表示绑定成功；后端未适配 / 网络失败返回 false。
+  /// 仅在 [AppConfig.kAccountBindingEnabled] 开启且存在 username 时由内部调用。
+  Future<bool> bindUserByUsername(String username) async {
+    final u = username.trim();
+    if (u.isEmpty) return false;
+    final url = '${await _baseUrl()}/users/register';
+    try {
+      final resp = await _dio.post<dynamic>(
+        url,
+        data: {'username': u, 'platform': 'android'},
+      );
+      final data = resp.data;
+      final id =
+          (data is Map ? (data['user_id'] ?? data['id']) : null)?.toString();
+      if (id == null || id.isEmpty) return false;
+      _prefsCache ??= await SharedPreferences.getInstance();
+      await _prefsCache!.setString(AppConfig.keyUserId, id);
+      return true;
+    } on DioException {
+      return false;
+    }
+  }
+
   /// POST /solve-records — 上传解题记录
   Future<void> uploadSolveRecord(Map<String, dynamic> payload) async {
     final url = '${await _baseUrl()}/solve-records';

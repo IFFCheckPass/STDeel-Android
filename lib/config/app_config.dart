@@ -16,8 +16,17 @@ class AppConfig {
   static const String keyBackendUrl = 'backend_url';
   static const String keyUserId = 'user_id';
   static const String keyDeviceId = 'device_id';
+  static const String keyUsername = 'username';
+  static const String keyUserApiKey = 'user_api_key';
   static const String keyAiCombos = 'ai_combos_json';
   static const String keyThinkTimeoutSeconds = 'think_timeout_seconds';
+
+  /// 账号绑定（用户名 / api-key 同步）功能开关
+  ///
+  /// 后端 api-key 同步尚未对接完成。在适配完成前该功能一律隐藏，
+  /// 避免本机注册的 user_id 与远端 username 归属冲突、造成数据污染。
+  /// 待接口就绪后改为 true 即可上线设置页中的用户名绑定入口。
+  static const bool kAccountBindingEnabled = false;
 
   /// 默认 think 检测超时（秒）
   static const int defaultThinkTimeoutSeconds = 20;

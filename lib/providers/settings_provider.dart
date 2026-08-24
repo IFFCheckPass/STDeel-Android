@@ -26,6 +26,8 @@ class SettingsProvider extends ChangeNotifier {
   bool _pinging = false;
   bool _pingOk = false;
   bool _loaded = false;
+  // 账号绑定（默认隐藏）：username 与 api-key 跨端同步，待后端适配后开放。
+  String? _username;
 
   String get backendUrl => _backendUrl;
   List<AiCombo> get combos => List.unmodifiable(_combos);
@@ -33,6 +35,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get pinging => _pinging;
   bool get pingOk => _pingOk;
   bool get loaded => _loaded;
+  String? get username => _username;
 
   /// 已启用且填写完整的组合
   List<AiCombo> get availableCombos =>
@@ -41,6 +44,7 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> load() async {
     _backendUrl = await _api.getBackendUrl();
     _thinkTimeout = await _api.getThinkTimeoutSeconds();
+    _username = await _api.getUsername();
     final raw = await _api.getAiCombosJson();
     if (raw != null && raw.isNotEmpty) {
       try {
@@ -132,5 +136,20 @@ class SettingsProvider extends ChangeNotifier {
       _pinging = false;
       notifyListeners();
     }
+  }
+
+  // ---------- 账号绑定（隐藏预埋，后端适配前不暴露到 UI） ----------
+
+  /// 设置用户名：本地持久化，并按 username 尝试绑定后端同一用户。
+  /// @return 绑定是否成功（后端未适配 / 网络失败返回 false，但仍保留本地用户名）
+  Future<bool> setUsername(String username) async {
+    final u = username.trim();
+    _username = u;
+    await _api.setUsername(u);
+    notifyListeners();
+    if (u.isNotEmpty && AppConfig.kAccountBindingEnabled) {
+      return _api.bindUserByUsername(u);
+    }
+    return true;
   }
 }
