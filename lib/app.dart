@@ -50,9 +50,14 @@ class StdeelApp extends StatelessWidget {
 /// 启动期注入依赖；服务之间通过构造函数装配好，
 /// 子组件只读即可，避免 ProxyProvider 的复杂签名与潜在误用。
 class AppProviders extends StatelessWidget {
-  const AppProviders({super.key, required this.child});
+  const AppProviders({
+    super.key,
+    required this.child,
+    this.notificationService,
+  });
 
   final Widget child;
+  final NotificationService? notificationService;
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +67,8 @@ class AppProviders extends StatelessWidget {
         Provider<BackendApi>(create: (_) => BackendApi()),
         Provider<AiService>(create: (_) => AiService()),
         Provider<NotificationService>(
-          create: (_) => NotificationService()..init(),
+          // main() 已对注入实例 await init()；传入则复用，避免重复初始化。
+          create: (_) => notificationService ?? NotificationService(),
         ),
         Provider<SyncService>(
           create: (ctx) => SyncService(

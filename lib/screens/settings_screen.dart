@@ -38,7 +38,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    _urlCtrl.dispose();
+    // _urlCtrl 为 late，仅在 didChangeDependencies 中初始化；若在首次构建前即被
+    // dispose（极端情况下），跳过释放以免抛 LateInitializationError。
+    if (_initialized) _urlCtrl.dispose();
     super.dispose();
   }
 

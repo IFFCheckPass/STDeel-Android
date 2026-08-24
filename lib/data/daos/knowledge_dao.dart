@@ -49,8 +49,8 @@ class KnowledgeDao extends DatabaseAccessor<AppDatabase>
     final query = select(knowledgeMastery);
     query.where((t) =>
         t.wrongCount.isBiggerThanValue(0) &
-        // wrongCount / (correct+wrong) > 0.5
-        t.wrongCount.isBiggerThanValue(0));
+        // wrongCount / (correct+wrong) > 0.5  ⟺  wrongCount > correctCount
+        t.wrongCount.isBiggerThan(t.correctCount));
     query.orderBy([(t) => OrderingTerm.desc(t.wrongCount)]);
     return query.get().then((rows) => rows.where((r) {
       final total = r.correctCount + r.wrongCount;

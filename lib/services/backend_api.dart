@@ -89,7 +89,14 @@ class BackendApi {
         url,
         data: {'device_id': _deviceId(), 'platform': 'android'},
       );
-      final id = (resp.data['user_id'] ?? resp.data['id']).toString();
+      // 响应体可能为 null / 非 Map，先判型再取 id，避免首次启动崩溃。
+      final data = resp.data;
+      final id =
+          (data is Map ? (data['user_id'] ?? data['id']) : null)?.toString();
+      if (id == null || id.isEmpty) {
+        throw BackendApiException('用户注册失败：响应缺少 user_id');
+      }
+      _prefsCache ??= await SharedPreferences.getInstance();
       await _prefsCache!.setString(AppConfig.keyUserId, id);
       return id;
     } on DioException catch (e) {

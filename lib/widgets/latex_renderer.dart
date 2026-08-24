@@ -50,8 +50,22 @@ class LatexRenderer extends StatelessWidget {
     }
   }
 
-  /// 把 markdown 中的 ``` ``` 代码块和 $...$ / $$...$$ 转给 TeXView
+  /// 把 markdown 中的 ``` ``` 代码块和 $...$ / $$...$$ 转给 TeXView。
+  /// 数学块（$...$ / $$...$$）保持原样交给 KaTeX 渲染；对加粗/行内代码等
+  /// 常见 markdown 做轻量到 LaTeX 的转换（KaTeX 支持 \textbf/\\texttt）。
   String _wrapMarkdown(String source) {
-    return source;
+    if (source.isEmpty) return source;
+    var out = source;
+    // 加粗 **text** → \textbf{text}
+    out = out.replaceAllMapped(
+      RegExp(r'\*\*([^*]+)\*\*'),
+      (m) => r'\textbf{' + m[1]!.trim() + '}',
+    );
+    // 反引号行内代码 `code` → \texttt{code}
+    out = out.replaceAllMapped(
+      RegExp(r'`([^`]+)`'),
+      (m) => r'\texttt{' + m[1]! + '}',
+    );
+    return out;
   }
 }

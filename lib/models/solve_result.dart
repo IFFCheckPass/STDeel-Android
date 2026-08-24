@@ -16,15 +16,18 @@ class QuestionResult {
 
   factory QuestionResult.fromJson(Map<String, dynamic> json) =>
       QuestionResult(
-        id: (json['id'] as num?)?.toInt() ?? 0,
-        content: (json['content'] as String?) ?? '',
-        knowledgePoints: (json['knowledge_points'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            [],
-        answer: (json['answer'] as String?) ?? '',
-        solution: (json['solution'] as String?) ?? '',
-        confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+        id: json['id'] is num ? (json['id'] as num).toInt() : 0,
+        content: json['content']?.toString() ?? '',
+        knowledgePoints: json['knowledge_points'] is List
+            ? (json['knowledge_points'] as List)
+                .map((e) => e.toString())
+                .toList()
+            : const [],
+        answer: json['answer']?.toString() ?? '',
+        solution: json['solution']?.toString() ?? '',
+        confidence: json['confidence'] is num
+            ? (json['confidence'] as num).toDouble()
+            : 0.0,
       );
 
   final String content;

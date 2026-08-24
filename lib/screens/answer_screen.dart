@@ -77,11 +77,13 @@ class _AnswerScreenState extends State<AnswerScreen> {
 
   void _maybeAutoScroll() {
     if (!_scrollCtrl.hasClients) return;
+    // 仅当用户本就贴近底部时才跟随滚动，避免上滑阅读时被持续强制拉回。
+    final pos = _scrollCtrl.position;
+    if (pos.maxScrollExtent - pos.pixels > 80) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollCtrl.hasClients) return;
-      final max = _scrollCtrl.position.maxScrollExtent;
       _scrollCtrl.animateTo(
-        max,
+        _scrollCtrl.position.maxScrollExtent,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
       );

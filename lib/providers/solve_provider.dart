@@ -133,8 +133,12 @@ class SolveProvider extends ChangeNotifier {
 
   void _handleStreamEvent(AiStreamEvent event, Stopwatch sw, String? imagePath) {
     if (event is ThinkingStarted) {
+      // 新一轮(可能是 Failover 切出的新模型)开始思考时清空上一模型的残余文本，
+      // 避免不同模型的片段拼接成脏内容上屏。
       _state = _state.copyWith(
         status: SolveStatus.thinking,
+        reasoningText: '',
+        answerText: '',
         currentModel: event.modelName,
         notice: null,
       );
@@ -143,8 +147,10 @@ class SolveProvider extends ChangeNotifier {
         reasoningText: _state.reasoningText + event.text,
       );
     } else if (event is AnsweringStarted) {
+      // 开始作答时清空旧答案，防止切换模型后文本串接。
       _state = _state.copyWith(
         status: SolveStatus.answering,
+        answerText: '',
         currentModel: event.modelName,
         notice: null,
       );

@@ -46,6 +46,11 @@ class FailoverManager {
 
   void _log(String msg) {
     logs.add(FailoverLogEntry(DateTime.now(), msg));
+    // 限制日志规模，避免长生命周期下无界内存增长。
+    const maxLogs = 200;
+    if (logs.length > maxLogs) {
+      logs.removeRange(0, logs.length - maxLogs);
+    }
   }
 
   /// 按组合顺序尝试，首个成功的模型透传其事件流。

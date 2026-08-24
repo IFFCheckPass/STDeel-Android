@@ -18,7 +18,9 @@ Future<void> main() async {
   ]);
 
   // 初始化本地通知（Failover / 解题完成 / 失败推送）
-  await NotificationService().init();
+  // 唯一实例：await init() 后注入 AppProviders 复用，避免双重初始化。
+  final notificationService = NotificationService();
+  await notificationService.init();
 
   // 初始化 flutter_tex 渲染服务（Android/iOS 上通过本地 HttpServer 提供 Mathjax）。
   // 不调用会导致 TeXView 答案/解答渲染空白。
@@ -27,8 +29,9 @@ Future<void> main() async {
   }
 
   runApp(
-    const AppProviders(
-      child: StdeelApp(),
+    AppProviders(
+      notificationService: notificationService,
+      child: const StdeelApp(),
     ),
   );
 }

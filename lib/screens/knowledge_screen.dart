@@ -35,6 +35,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   Future<void> _refresh() async {
     final db = context.read<AppDatabase>();
     final rows = await db.knowledgeDao.getAll();
+    if (!mounted) return;
     setState(() {
       _points = rows
           .map((r) => KnowledgePoint(

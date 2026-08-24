@@ -34,6 +34,7 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
   Future<void> _refresh() async {
     final db = context.read<AppDatabase>();
     final rows = await db.answerLibraryDao.getAll();
+    if (!mounted) return;
     setState(() {
       _rows = rows;
       _loading = false;
@@ -45,6 +46,7 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
     final list = _keyword.isEmpty
         ? await db.answerLibraryDao.getAll()
         : await db.answerLibraryDao.searchByText(_keyword);
+    if (!mounted) return;
     setState(() => _rows = list);
   }
 
@@ -53,63 +55,70 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
     final aCtrl = TextEditingController();
     final sCtrl = TextEditingController();
     final kpCtrl = TextEditingController();
-
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('录入标准答案'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                  controller: qCtrl,
-                  decoration: const InputDecoration(labelText: '题干')),
-              TextField(
-                  controller: aCtrl,
-                  decoration: const InputDecoration(labelText: '答案')),
-              TextField(
-                  controller: sCtrl,
-                  maxLines: 3,
-                  decoration:
-                      const InputDecoration(labelText: '解答过程')),
-              TextField(
-                  controller: kpCtrl,
-                  decoration: const InputDecoration(
-                      labelText: '知识点（逗号分隔）')),
-            ],
+    try {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('录入标准答案'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                    controller: qCtrl,
+                    decoration: const InputDecoration(labelText: '题干')),
+                TextField(
+                    controller: aCtrl,
+                    decoration: const InputDecoration(labelText: '答案')),
+                TextField(
+                    controller: sCtrl,
+                    maxLines: 3,
+                    decoration:
+                        const InputDecoration(labelText: '解答过程')),
+                TextField(
+                    controller: kpCtrl,
+                    decoration: const InputDecoration(
+                        labelText: '知识点（逗号分隔）')),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('保存')),
+          ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('保存')),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    final sync = context.read<SyncService>();
-    final hash = _hashOf(qCtrl.text);
-    final kps = kpCtrl.text
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    await sync.uploadAnswer(
-      questionText: qCtrl.text.trim(),
-      questionHash: hash,
-      answer: aCtrl.text.trim(),
-      solution: sCtrl.text.trim(),
-      knowledgePoints: kps,
-    );
-    await _refresh();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ 已保存到本地答案库并同步后端')),
-    );
+      );
+      if (ok != true || !mounted) return;
+      final sync = context.read<SyncService>();
+      final hash = _hashOf(qCtrl.text);
+      final kps = kpCtrl.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      await sync.uploadAnswer(
+        questionText: qCtrl.text.trim(),
+        questionHash: hash,
+        answer: aCtrl.text.trim(),
+        solution: sCtrl.text.trim(),
+        knowledgePoints: kps,
+      );
+      if (!mounted) return;
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ 已保存到本地答案库并同步后端')),
+      );
+    } finally {
+      qCtrl.dispose();
+      aCtrl.dispose();
+      sCtrl.dispose();
+      kpCtrl.dispose();
+    }
   }
 
   String _hashOf(String text) {

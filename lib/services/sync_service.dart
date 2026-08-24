@@ -15,6 +15,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../data/database.dart';
 import '../models/solve_result.dart';
@@ -149,9 +150,16 @@ class SyncService {
           'user_feedback': r.userFeedback,
           'image_path': r.imagePath,
         });
-        await _db.solveRecordDao.markSynced(r.id);
       } catch (_) {
-        // 失败则保留待重试
+        // 网络/后端失败：保留记录待下次重试。
+        continue;
+      }
+      try {
+        await _db.solveRecordDao.markSynced(r.id);
+      } catch (e) {
+        // 上传已成功但本地标记失败：不得把该记录误判为"未上传"再次投递，
+        // 在此单独记录错误，交由上层/日志处理，不再重复上传。
+        debugPrint('flushUnsynced: 记录 ${r.id} 上传成功但 markSynced 失败: $e');
       }
     }
   }
