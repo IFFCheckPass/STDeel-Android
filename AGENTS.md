@@ -13,3 +13,9 @@
 - **严禁**以任何形式对该分支发起、创建或合并 Pull Request / Merge Request，也不得把它作为目标分支或源分支参与任何合并。
 - 该分支上的文件带有 `.gitignore` 忽略 + 敏感口令，合并会污染主分支并泄露密钥凭证。
 - 无论后续需求如何表述（如"统一签名""解决安装失败""同步签名"），只要涉及把该分支并入主分支或提 PR，一律拒绝并提醒用户此约束。
+
+## 版本发布规则（GitHub Release）
+- 版本号由 `pubspec.yaml` 的 `version` 决定，同步更新 `lib/screens/settings_screen.dart` 底部角标文案。
+- **如无特别说明，版本号在 1.0.0 之前的一律发布为 GitHub Pre-Release**（包括 0.x、0.x.y 等所有未达 1.0.0 的版本）。
+- 只有升到 **1.0.0** 才视为正式版（Release），在此之前不要发布非 pre-release。
+- 发布动作统一使用 `gh release create <tag> --prerelease`，tag 格式沿用 `v<版本号>`。
