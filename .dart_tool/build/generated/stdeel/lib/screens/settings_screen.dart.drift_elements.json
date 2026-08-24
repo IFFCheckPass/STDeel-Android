@@ -1,1 +1,0 @@
-{"valid_import":true,"imports":[{"uri":"package:flutter/material.dart","transitive":false},{"uri":"package:provider/provider.dart","transitive":false},{"uri":"package:stdeel/providers/settings_provider.dart","transitive":false},{"uri":"package:stdeel/services/sync_service.dart","transitive":false}],"elements":[]}

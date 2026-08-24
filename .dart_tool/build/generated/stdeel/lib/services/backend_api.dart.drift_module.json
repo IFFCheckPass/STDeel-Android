@@ -1,8 +1,0 @@
-{
-  "elements": {},
-  "imports": [
-    "package:dio/dio.dart",
-    "package:shared_preferences/shared_preferences.dart",
-    "package:stdeel/config/app_config.dart"
-  ]
-}

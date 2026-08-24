@@ -1,6 +1,0 @@
-{
-  "elements": {},
-  "imports": [
-    "package:crypto/crypto.dart"
-  ]
-}

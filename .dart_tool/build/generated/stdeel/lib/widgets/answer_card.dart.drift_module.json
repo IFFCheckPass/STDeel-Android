@@ -1,8 +1,0 @@
-{
-  "elements": {},
-  "imports": [
-    "package:flutter/material.dart",
-    "package:stdeel/models/solve_result.dart",
-    "package:stdeel/widgets/latex_renderer.dart"
-  ]
-}

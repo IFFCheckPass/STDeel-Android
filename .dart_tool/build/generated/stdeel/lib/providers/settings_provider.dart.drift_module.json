@@ -1,8 +1,0 @@
-{
-  "elements": {},
-  "imports": [
-    "package:flutter/foundation.dart",
-    "package:stdeel/config/app_config.dart",
-    "package:stdeel/services/backend_api.dart"
-  ]
-}
