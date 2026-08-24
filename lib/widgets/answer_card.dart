@@ -180,7 +180,7 @@ class AnswerCard extends StatelessWidget {
                       ),
                       child: Text(
                         kp,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11, color: G.textPrimary),
                       ),
                     ))

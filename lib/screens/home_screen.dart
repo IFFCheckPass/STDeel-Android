@@ -114,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          const Text(
+                          Text(
                             '思谛',
                             textAlign: TextAlign.center,
                             style: TextStyle(

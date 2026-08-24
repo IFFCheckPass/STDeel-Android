@@ -327,8 +327,8 @@ class GlassCard extends StatelessWidget {
   final EdgeInsetsGeometry? margin;
   final double radius;
   final double blurSigma;
-  final Color fillColor;
-  final Color borderColor;
+  final Color? fillColor;
+  final Color? borderColor;
   final Color? glowColor;
   final BorderRadius? borderRadius;
   final Clip? clipBehavior;
@@ -432,7 +432,7 @@ class GlassPrimaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final double height;
   final Gradient? gradient;
-  final Color borderColor;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {

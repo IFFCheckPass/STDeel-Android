@@ -183,7 +183,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
                   child: Text(
                     '示例：\n'
@@ -230,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Center(
+          Center(
             child: Text(
               '思谛 STDeel · v0.2.0',
               style: TextStyle(fontSize: 11, color: G.textFaint),
@@ -385,8 +385,8 @@ class _ComboTile extends StatelessWidget {
                 // 拖动手柄
                 ReorderableDragStartListener(
                   index: index,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Icon(Icons.drag_indicator, color: G.textFaint, size: 20),
                   ),
                 ),

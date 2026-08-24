@@ -114,11 +114,11 @@ class _CameraScreenState extends State<CameraScreen> {
             ),
             const SizedBox(height: 32),
             if (_busy)
-              const Center(
+              Center(
                 child: Column(
                   children: [
                     CircularProgressIndicator(),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Text('正在打开相机…', style: TextStyle(color: G.textSecondary)),
                   ],
                 ),

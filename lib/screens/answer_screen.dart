@@ -211,7 +211,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
                   const SizedBox(height: 8),
                   SelectableText(
                     state.reasoningText,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       color: G.textSecondary,
                       fontStyle: FontStyle.italic,

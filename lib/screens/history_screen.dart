@@ -187,7 +187,7 @@ class _HistoryCardState extends State<_HistoryCard> {
                           overflow: _expanded
                               ? TextOverflow.visible
                               : TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             height: 1.5,
                             color: G.textPrimary,
@@ -212,7 +212,7 @@ class _HistoryCardState extends State<_HistoryCard> {
                             ],
                             Text(
                               _formatTime(r.createdAt),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: G.textFaint,
                               ),
