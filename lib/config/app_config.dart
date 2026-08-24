@@ -20,6 +20,7 @@ class AppConfig {
   static const String keyUserApiKey = 'user_api_key';
   static const String keyAiCombos = 'ai_combos_json';
   static const String keyThinkTimeoutSeconds = 'think_timeout_seconds';
+  static const String keyThemeMode = 'theme_mode'; // system | light | dark
 
   /// 账号绑定（用户名 / api-key 同步）功能开关
   ///

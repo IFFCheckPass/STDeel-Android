@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../data/database.dart';
 import '../services/sync_service.dart';
+import '../widgets/glass.dart';
 
 class AnswerLibraryScreen extends StatefulWidget {
   const AnswerLibraryScreen({super.key});
@@ -163,11 +164,11 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
                         itemBuilder: (context, i) {
                           final r = _rows[i];
                           return Card(
-                            color: Colors.white.withOpacity(0.05),
+                            color: G.glassFill,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
-                              side: const BorderSide(color: Color(0x29FFFFFF)),
+                              side: BorderSide(color: G.glassBorder),
                             ),
                             child: ListTile(
                               title: Text(r.questionText,

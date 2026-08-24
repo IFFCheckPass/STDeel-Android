@@ -9,6 +9,7 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../config/ai_config.dart';
 import '../config/app_config.dart';
@@ -26,6 +27,7 @@ class SettingsProvider extends ChangeNotifier {
   bool _pinging = false;
   bool _pingOk = false;
   bool _loaded = false;
+  ThemeMode _themeMode = ThemeMode.system;
   // 账号绑定（默认隐藏）：username 与 api-key 跨端同步，待后端适配后开放。
   String? _username;
 
@@ -36,6 +38,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get pingOk => _pingOk;
   bool get loaded => _loaded;
   String? get username => _username;
+  ThemeMode get themeMode => _themeMode;
 
   /// 已启用且填写完整的组合
   List<AiCombo> get availableCombos =>
@@ -45,6 +48,7 @@ class SettingsProvider extends ChangeNotifier {
     _backendUrl = await _api.getBackendUrl();
     _thinkTimeout = await _api.getThinkTimeoutSeconds();
     _username = await _api.getUsername();
+    _themeMode = _parseThemeMode(await _api.getThemeMode());
     final raw = await _api.getAiCombosJson();
     if (raw != null && raw.isNotEmpty) {
       try {
@@ -123,6 +127,25 @@ class SettingsProvider extends ChangeNotifier {
     await _api.setThinkTimeoutSeconds(_thinkTimeout);
     notifyListeners();
   }
+
+  /// 设置主题模式（system / light / dark）
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _themeMode = mode;
+    await _api.setThemeMode(_themeModeName(mode));
+    notifyListeners();
+  }
+
+  String _themeModeName(ThemeMode mode) => switch (mode) {
+        ThemeMode.light => 'light',
+        ThemeMode.dark => 'dark',
+        ThemeMode.system => 'system',
+      };
+
+  ThemeMode _parseThemeMode(String s) => switch (s) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      };
 
   Future<void> ping() async {
     _pinging = true;

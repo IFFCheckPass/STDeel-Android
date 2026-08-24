@@ -25,17 +25,25 @@ class StdeelApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
+    final themeMode = settings.loaded ? settings.themeMode : ThemeMode.system;
     return MaterialApp(
       title: '思谛',
       debugShowCheckedModeBanner: false,
       theme: G.theme(Brightness.light),
       darkTheme: G.theme(Brightness.dark),
-      // 跟随系统深浅色
-      themeMode: ThemeMode.system,
+      // 跟随系统，或由设置页手动选择白天/夜间
+      themeMode: themeMode,
       builder: (context, child) {
-        // 同步当前平台亮度到设计令牌，页面 build 时据此取浅/深配色
-        G.brightness =
-            MediaQuery.maybeOf(context)?.platformBrightness ?? G.brightness;
+        // 同步平台亮度到设计令牌；手动选择白天/夜间时强制覆盖。
+        final platformBrightness =
+            MediaQuery.maybeOf(context)?.platformBrightness ??
+                Brightness.dark;
+        G.brightness = themeMode == ThemeMode.dark
+            ? Brightness.dark
+            : themeMode == ThemeMode.light
+                ? Brightness.light
+                : platformBrightness;
         return GlassBackground(child: child);
       },
       home: const HomeScreen(),

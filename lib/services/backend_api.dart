@@ -80,6 +80,17 @@ class BackendApi {
     await _prefsCache!.setInt(AppConfig.keyThinkTimeoutSeconds, seconds);
   }
 
+  /// 主题模式（system | light | dark）持久化
+  Future<String> getThemeMode() async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    return _prefsCache!.getString(AppConfig.keyThemeMode) ?? 'system';
+  }
+
+  Future<void> setThemeMode(String mode) async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    await _prefsCache!.setString(AppConfig.keyThemeMode, mode);
+  }
+
   Future<String> getBackendUrl() async => _baseUrl();
 
   /// POST /users/register

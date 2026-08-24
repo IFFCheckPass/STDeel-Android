@@ -14,6 +14,7 @@ import '../data/database.dart';
 import '../models/knowledge_point.dart';
 import '../providers/settings_provider.dart';
 import '../providers/solve_provider.dart';
+import '../widgets/glass.dart';
 
 class KnowledgeScreen extends StatefulWidget {
   const KnowledgeScreen({super.key});
@@ -75,7 +76,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFFFF6B6B))),
+                    color: G.coral)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -104,8 +105,9 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: G.glassFill,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: G.glassBorder),
         ),
         child: const Text('至少需要 3 个知识点才能绘制雷达图'),
       );
@@ -117,30 +119,29 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         dataSets: [
           RadarDataSet(
             dataEntries: [for (final v in values) RadarEntry(value: v)],
-            fillColor: const Color(0xFF4F7CFF).withOpacity(0.3),
-            borderColor: const Color(0xFF7C9CFF),
+            fillColor: G.accentDeep.withOpacity(0.3),
+            borderColor: G.accent,
           )
         ],
-        titleTextStyle: const TextStyle(
-            fontSize: 11, color: Color(0xFF9AA3C7)),
+        titleTextStyle: TextStyle(fontSize: 11, color: G.textSecondary),
         getTitle: (idx, angle) =>
             RadarChartTitle(text: _points[idx % n].name),
         tickCount: 4,
-        ticksTextStyle: const TextStyle(fontSize: 9, color: Color(0xFF6B7399)),
-        gridBorderData: BorderSide(color: Colors.white.withOpacity(0.15)),
+        ticksTextStyle: TextStyle(fontSize: 9, color: G.textFaint),
+        gridBorderData: BorderSide(color: G.glassBorder),
         radarBackgroundColor: Colors.transparent,
       )),
     );
   }
 
   Widget _buildPointRow(BuildContext context, KnowledgePoint p) {
-    final color = p.isWeak ? const Color(0xFFFF6B6B) : const Color(0xFF00D9A6);
+    final color = p.isWeak ? G.coral : G.mint;
     return Card(
-      color: Colors.white.withOpacity(0.05),
+      color: G.glassFill,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0x29FFFFFF)),
+        side: BorderSide(color: G.glassBorder),
       ),
       child: ListTile(
         title: Text(p.name),

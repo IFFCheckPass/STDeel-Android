@@ -139,8 +139,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       child: Text(
                         '${s.thinkTimeout} 秒',
-                        style: const TextStyle(
-                          color: G.accent,
+                        style: TextStyle(
+                          color: G.accentFg,
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
                         ),
@@ -160,6 +160,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 Text(
                   '模型在此时长内未输出任何内容（含思考与回答）时，自动切换下一组合。API 响应慢可适当调大。',
+                  style: TextStyle(fontSize: 12, color: G.textFaint, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // ===== 外观（日/夜） =====
+          GlassSectionTitle('外观'),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.contrast_rounded, color: G.accent, size: 18),
+                    const SizedBox(width: 10),
+                    const Text('主题模式', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    Icon(
+                      s.themeMode == ThemeMode.system
+                          ? Icons.brightness_auto
+                          : Icons.palette_outlined,
+                      color: G.accent,
+                      size: 18,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<ThemeMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        label: Text('日间'),
+                        icon: Icon(Icons.light_mode),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        label: Text('跟随系统'),
+                        icon: Icon(Icons.brightness_auto),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        label: Text('夜间'),
+                        icon: Icon(Icons.dark_mode),
+                      ),
+                    ],
+                    selected: {s.themeMode},
+                    onSelectionChanged: (sel) => s.setThemeMode(sel.first),
+                    showSelectedIcon: false,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '日间模式采用浅色玻璃卡片；也可自动跟随系统深浅色。',
                   style: TextStyle(fontSize: 12, color: G.textFaint, height: 1.5),
                 ),
               ],

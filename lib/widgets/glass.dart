@@ -22,16 +22,18 @@ class G {
   static bool get _light => brightness == Brightness.light;
 
   // 背景渐变（随系统深浅）
-  static Color get bgTop => _light ? const Color(0xFFF7F8FC) : const Color(0xFF0F1326);
-  static Color get bgMid => _light ? const Color(0xFFEDF1FF) : const Color(0xFF1A2040);
-  static Color get bgBottom => _light ? const Color(0xFFE3E9FB) : const Color(0xFF251E4E);
+  static Color get bgTop => _light ? const Color(0xFFEFF2FB) : const Color(0xFF0F1326);
+  static Color get bgMid => _light ? const Color(0xFFE3E9FB) : const Color(0xFF1A2040);
+  static Color get bgBottom => _light ? const Color(0xFFD7E0FA) : const Color(0xFF251E4E);
 
-  // 主题色（品牌色，深浅通用，保留 const）
+  // 主题色（品牌色）
   static const Color accent = Color(0xFF7C9CFF);
   static const Color accentDeep = Color(0xFF4F7CFF);
   static const Color mint = Color(0xFF00D9A6);
   static const Color coral = Color(0xFFFF6B6B);
   static const Color amber = Color(0xFFFFC24B);
+  // 强调色的前景文字色：暗色模式用亮色，浅色模式换成更深的蓝，保证文字/图标可读
+  static Color get accentFg => _light ? const Color(0xFF3355C9) : accent;
 
   // 文字（随系统深浅）
   static Color get textPrimary =>
@@ -41,15 +43,15 @@ class G {
   static Color get textFaint =>
       _light ? const Color(0xFF7C86A8) : const Color(0xFF6B7399);
 
-  // 玻璃（随系统深浅：浅色下玻璃偏不透明白以承载深色文字）
+  // 玻璃（随系统深浅：浅色下保持半透明白、并用清晰边框 + 投影增强"玻璃"观感）
   static Color get glassFill =>
-      _light ? const Color(0xBFFFFFFF) : const Color(0x14FFFFFF);
+      _light ? const Color(0x8FFFFFFF) : const Color(0x14FFFFFF);
   static Color get glassFillStrong =>
-      _light ? const Color(0xD9FFFFFF) : const Color(0x24FFFFFF);
+      _light ? const Color(0xCCFFFFFF) : const Color(0x24FFFFFF);
   static Color get glassBorder =>
-      _light ? const Color(0x2E24304F) : const Color(0x29FFFFFF);
+      _light ? const Color(0x4A5A6FC6) : const Color(0x29FFFFFF);
   static Color get glassHighlight =>
-      _light ? const Color(0x1AFFFFFF) : const Color(0x40FFFFFF);
+      _light ? const Color(0x40FFFFFF) : const Color(0x40FFFFFF);
 
   static const double radius = 22;
   static const double blur = 18;
@@ -135,7 +137,7 @@ class G {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: accent,
+          foregroundColor: accentFg,
           side: BorderSide(color: glassBorder),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -143,7 +145,7 @@ class G {
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: accent),
+        style: TextButton.styleFrom(foregroundColor: accentFg),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) =>
