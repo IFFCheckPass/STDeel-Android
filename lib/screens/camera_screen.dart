@@ -60,11 +60,11 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialCamera) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _pick(
-            ImageSource.camera,
-          ));
-    }
+    // initialCamera=true 自动打开相机；false 自动打开相册选择，
+    // 均一步到位，无需用户在选图页再点一次对应按钮。
+    WidgetsBinding.instance.addPostFrameCallback((_) => _pick(
+          widget.initialCamera ? ImageSource.camera : ImageSource.gallery,
+        ));
   }
 
   @override
