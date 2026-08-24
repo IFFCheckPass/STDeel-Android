@@ -35,6 +35,8 @@ class SolveRecords extends Table {
   )();
   BoolColumn get synced =>
       boolean().withDefault(const Constant(false))(); // 是否已同步至后端
+  // 后端主键 id（下拉同步时用于幂等去重；未同步/仅本地时为 null）
+  IntColumn get remoteId => integer().nullable()();
   TextColumn get imagePath => text().withDefault(const Constant(''))();
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();

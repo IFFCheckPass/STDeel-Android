@@ -72,4 +72,70 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
   Future<int> markSynced(int id) =>
       (update(solveRecords)..where((t) => t.id.equals(id)))
           .write(const SolveRecordsCompanion(synced: Value(true)));
+
+  /// 按后端 remoteId 幂等写回（下拉同步用）。
+  ///
+  /// 该 remoteId 已存在则更新字段；不存在则插入一条新记录。
+  /// @return 写入的本地自增 id
+  Future<int> upsertFromBackend({
+    required int remoteId,
+    required String questionText,
+    required String answer,
+    required String solution,
+    required String userFeedback,
+    String knowledgePoints = '[]',
+    String aiModel = '',
+    int latencyMs = 0,
+    int tokensUsed = 0,
+    bool matched = false,
+    DateTime? createdAt,
+  }) async {
+    final rec = await (select(solveRecords)
+          ..where((t) => t.remoteId.equals(remoteId)))
+        .getSingleOrNull();
+    final baseFields = SolveRecordsCompanion(
+      questionText: Value(questionText),
+      answer: Value(answer),
+      solution: Value(solution),
+      knowledgePoints: Value(knowledgePoints),
+      aiModel: Value(aiModel),
+      latencyMs: Value(latencyMs),
+      tokensUsed: Value(tokensUsed),
+      matched: Value(matched),
+      userFeedback: Value(userFeedback),
+      actionType: Value(userFeedback),
+      synced: const Value(true),
+      remoteId: Value(remoteId),
+      createdAt: Value(createdAt ?? DateTime.now()),
+    );
+    if (rec != null) {
+      await (update(solveRecords)..where((t) => t.remoteId.equals(remoteId)))
+          .write(baseFields);
+      return rec.id;
+    }
+    return into(solveRecords).insert(
+      SolveRecordsCompanion.insert(
+        questionText: questionText,
+        answer: Value(answer),
+        solution: Value(solution),
+        knowledgePoints: Value(knowledgePoints),
+        aiModel: Value(aiModel),
+        latencyMs: Value(latencyMs),
+        tokensUsed: Value(tokensUsed),
+        matched: Value(matched),
+        userFeedback: Value(userFeedback),
+        actionType: Value(userFeedback),
+        synced: const Value(true),
+        remoteId: Value(remoteId),
+        createdAt: Value(createdAt ?? DateTime.now()),
+      ),
+    );
+  }
+
+  /// 取所有已同步（存在后端 id）的记录
+  Future<List<SolveRecordEntity>> getAllSynced() =>
+      (select(solveRecords)
+            ..where((t) => t.remoteId.isNotNull())
+            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          .get();
 }

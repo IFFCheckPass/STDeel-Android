@@ -31,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase._();
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -51,6 +51,16 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(
               solveRecords,
               solveRecords.actionType,
+            );
+          }
+          // v2 -> v3：下拉同步用后端主键 remoteId（幂等去重）
+          if (from < 3) {
+            await m.addColumn(
+              solveRecords,
+              solveRecords.remoteId,
+            );
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_solve_remote ON solve_records(remote_id)',
             );
           }
         },

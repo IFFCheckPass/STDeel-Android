@@ -216,6 +216,31 @@ class BackendApi {
     }
   }
 
+  /// GET /solve-records — 下拉后端解题记录（双向同步下行）
+  ///
+  /// 按 user_id 拉取本机没有的记录：正确作答返回最近 [correctDays] 天，
+  /// 错误作答返回最近 [wrongDays] 天。后端暂未适配时抛错，由调用方降级为空。
+  Future<List<Map<String, dynamic>>> fetchSolveRecords({
+    int correctDays = 30,
+    int wrongDays = 90,
+  }) async {
+    final url = '${await _baseUrl()}/solve-records';
+    try {
+      final resp = await _dio.get<dynamic>(
+        url,
+        queryParameters: {
+          'user_id': await _userId(),
+          'correct_days': correctDays,
+          'wrong_days': wrongDays,
+        },
+      );
+      final list = resp.data['items'] as List<dynamic>? ?? [];
+      return list.cast<Map<String, dynamic>>();
+    } on DioException catch (e) {
+      throw BackendApiException('获取解题记录失败: ${e.message}');
+    }
+  }
+
   /// POST /answer-library — 上传标准答案
   Future<void> uploadAnswer(Map<String, dynamic> payload) async {
     final url = '${await _baseUrl()}/answer-library';

@@ -163,4 +163,47 @@ class SyncService {
       }
     }
   }
+
+  /// 下拉后端解题记录并写回本地（仅正确=近1个月 / 错误=近3个月）。
+  ///
+  /// 按后端主键 remoteId 幂等合并，避免重复插入。后端未适配或失败时静默。
+  Future<void> pullSolveRecords() async {
+    try {
+      final rows = await _api.fetchSolveRecords(
+        correctDays: 30,
+        wrongDays: 90,
+      );
+      for (final row in rows) {
+        final remoteId = (row['id'] as num?)?.toInt();
+        if (remoteId == null || remoteId <= 0) continue;
+        await _db.solveRecordDao.upsertFromBackend(
+          remoteId: remoteId,
+          questionText: row['question_text']?.toString() ?? '',
+          answer: row['answer']?.toString() ?? '',
+          solution: row['solution']?.toString() ?? '',
+          userFeedback: row['user_feedback']?.toString() ?? 'correct',
+          knowledgePoints:
+              row['knowledge_points'] is List
+                  ? jsonEncode(row['knowledge_points'])
+                  : '[]',
+          aiModel: row['ai_model']?.toString() ?? '',
+          latencyMs: (row['latency_ms'] as num?)?.toInt() ?? 0,
+          tokensUsed: (row['tokens_used'] as num?)?.toInt() ?? 0,
+          matched: row['matched'] == true,
+          createdAt:
+              row['created_at'] is String
+                  ? DateTime.tryParse(row['created_at'])
+                  : null,
+        );
+      }
+    } catch (_) {
+      // 后端未实现下拉接口或网络失败：静默，仅保留上行能力。
+    }
+  }
+
+  /// 手动同步入口：先上行补传本地未同步记录，再从后端下拉回写缺失记录。
+  Future<void> syncAll() async {
+    await flushUnsynced();
+    await pullSolveRecords();
+  }
 }

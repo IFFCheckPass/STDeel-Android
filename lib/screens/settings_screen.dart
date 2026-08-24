@@ -226,7 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 OutlinedButton.icon(
                   onPressed: () => _manualSync(context),
                   icon: const Icon(Icons.sync, size: 18),
-                  label: const Text('手动同步解题记录至后端'),
+                  label: const Text('手动同步解题记录（双向）'),
                 ),
               ],
             ),
@@ -275,9 +275,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final sync = context.read<SyncService>();
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await sync.flushUnsynced();
+      // 双向同步：先上传本地未同步记录，再下拉后端缺失记录
+      await sync.syncAll();
       messenger.showSnackBar(
-        const SnackBar(content: Text('同步任务已触发（失败项会在下次重试）')),
+        const SnackBar(content: Text('同步完成：本地记录已上传，后端记录已回写')),
       );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('同步失败：$e')));

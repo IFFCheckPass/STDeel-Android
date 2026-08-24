@@ -106,6 +106,12 @@ class $SolveRecordsTable extends SolveRecords
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("synced" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _remoteIdMeta =
+      const VerificationMeta('remoteId');
+  @override
+  late final GeneratedColumn<int> remoteId = GeneratedColumn<int>(
+      'remote_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _imagePathMeta =
       const VerificationMeta('imagePath');
   @override
@@ -136,6 +142,7 @@ class $SolveRecordsTable extends SolveRecords
         userFeedback,
         actionType,
         synced,
+        remoteId,
         imagePath,
         createdAt
       ];
@@ -208,6 +215,10 @@ class $SolveRecordsTable extends SolveRecords
       context.handle(_syncedMeta,
           synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta));
     }
+    if (data.containsKey('remote_id')) {
+      context.handle(_remoteIdMeta,
+          remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta));
+    }
     if (data.containsKey('image_path')) {
       context.handle(_imagePathMeta,
           imagePath.isAcceptableOrUnknown(data['image_path']!, _imagePathMeta));
@@ -249,6 +260,8 @@ class $SolveRecordsTable extends SolveRecords
           .read(DriftSqlType.string, data['${effectivePrefix}action_type'])!,
       synced: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}synced'])!,
+      remoteId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}remote_id']),
       imagePath: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}image_path'])!,
       createdAt: attachedDatabase.typeMapping
@@ -276,6 +289,7 @@ class SolveRecordEntity extends DataClass
   final String userFeedback;
   final String actionType;
   final bool synced;
+  final int? remoteId;
   final String imagePath;
   final DateTime createdAt;
   const SolveRecordEntity(
@@ -291,6 +305,7 @@ class SolveRecordEntity extends DataClass
       required this.userFeedback,
       required this.actionType,
       required this.synced,
+      this.remoteId,
       required this.imagePath,
       required this.createdAt});
   @override
@@ -308,6 +323,9 @@ class SolveRecordEntity extends DataClass
     map['user_feedback'] = Variable<String>(userFeedback);
     map['action_type'] = Variable<String>(actionType);
     map['synced'] = Variable<bool>(synced);
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<int>(remoteId);
+    }
     map['image_path'] = Variable<String>(imagePath);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -327,6 +345,9 @@ class SolveRecordEntity extends DataClass
       userFeedback: Value(userFeedback),
       actionType: Value(actionType),
       synced: Value(synced),
+      remoteId: remoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteId),
       imagePath: Value(imagePath),
       createdAt: Value(createdAt),
     );
@@ -348,6 +369,7 @@ class SolveRecordEntity extends DataClass
       userFeedback: serializer.fromJson<String>(json['userFeedback']),
       actionType: serializer.fromJson<String>(json['actionType']),
       synced: serializer.fromJson<bool>(json['synced']),
+      remoteId: serializer.fromJson<int?>(json['remoteId']),
       imagePath: serializer.fromJson<String>(json['imagePath']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -368,6 +390,7 @@ class SolveRecordEntity extends DataClass
       'userFeedback': serializer.toJson<String>(userFeedback),
       'actionType': serializer.toJson<String>(actionType),
       'synced': serializer.toJson<bool>(synced),
+      'remoteId': serializer.toJson<int?>(remoteId),
       'imagePath': serializer.toJson<String>(imagePath),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -386,6 +409,7 @@ class SolveRecordEntity extends DataClass
           String? userFeedback,
           String? actionType,
           bool? synced,
+          Value<int?> remoteId = const Value.absent(),
           String? imagePath,
           DateTime? createdAt}) =>
       SolveRecordEntity(
@@ -401,6 +425,7 @@ class SolveRecordEntity extends DataClass
         userFeedback: userFeedback ?? this.userFeedback,
         actionType: actionType ?? this.actionType,
         synced: synced ?? this.synced,
+        remoteId: remoteId.present ? remoteId.value : this.remoteId,
         imagePath: imagePath ?? this.imagePath,
         createdAt: createdAt ?? this.createdAt,
       );
@@ -423,10 +448,10 @@ class SolveRecordEntity extends DataClass
       userFeedback: data.userFeedback.present
           ? data.userFeedback.value
           : this.userFeedback,
-      actionType: data.actionType.present
-          ? data.actionType.value
-          : this.actionType,
+      actionType:
+          data.actionType.present ? data.actionType.value : this.actionType,
       synced: data.synced.present ? data.synced.value : this.synced,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
@@ -447,6 +472,7 @@ class SolveRecordEntity extends DataClass
           ..write('userFeedback: $userFeedback, ')
           ..write('actionType: $actionType, ')
           ..write('synced: $synced, ')
+          ..write('remoteId: $remoteId, ')
           ..write('imagePath: $imagePath, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -467,6 +493,7 @@ class SolveRecordEntity extends DataClass
       userFeedback,
       actionType,
       synced,
+      remoteId,
       imagePath,
       createdAt);
   @override
@@ -485,6 +512,7 @@ class SolveRecordEntity extends DataClass
           other.userFeedback == this.userFeedback &&
           other.actionType == this.actionType &&
           other.synced == this.synced &&
+          other.remoteId == this.remoteId &&
           other.imagePath == this.imagePath &&
           other.createdAt == this.createdAt);
 }
@@ -502,6 +530,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
   final Value<String> userFeedback;
   final Value<String> actionType;
   final Value<bool> synced;
+  final Value<int?> remoteId;
   final Value<String> imagePath;
   final Value<DateTime> createdAt;
   const SolveRecordsCompanion({
@@ -517,6 +546,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     this.userFeedback = const Value.absent(),
     this.actionType = const Value.absent(),
     this.synced = const Value.absent(),
+    this.remoteId = const Value.absent(),
     this.imagePath = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
@@ -533,6 +563,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     this.userFeedback = const Value.absent(),
     this.actionType = const Value.absent(),
     this.synced = const Value.absent(),
+    this.remoteId = const Value.absent(),
     this.imagePath = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : questionText = Value(questionText);
@@ -549,6 +580,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     Expression<String>? userFeedback,
     Expression<String>? actionType,
     Expression<bool>? synced,
+    Expression<int>? remoteId,
     Expression<String>? imagePath,
     Expression<DateTime>? createdAt,
   }) {
@@ -565,6 +597,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
       if (userFeedback != null) 'user_feedback': userFeedback,
       if (actionType != null) 'action_type': actionType,
       if (synced != null) 'synced': synced,
+      if (remoteId != null) 'remote_id': remoteId,
       if (imagePath != null) 'image_path': imagePath,
       if (createdAt != null) 'created_at': createdAt,
     });
@@ -583,6 +616,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
       Value<String>? userFeedback,
       Value<String>? actionType,
       Value<bool>? synced,
+      Value<int?>? remoteId,
       Value<String>? imagePath,
       Value<DateTime>? createdAt}) {
     return SolveRecordsCompanion(
@@ -598,6 +632,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
       userFeedback: userFeedback ?? this.userFeedback,
       actionType: actionType ?? this.actionType,
       synced: synced ?? this.synced,
+      remoteId: remoteId ?? this.remoteId,
       imagePath: imagePath ?? this.imagePath,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -642,6 +677,9 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     if (synced.present) {
       map['synced'] = Variable<bool>(synced.value);
     }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<int>(remoteId.value);
+    }
     if (imagePath.present) {
       map['image_path'] = Variable<String>(imagePath.value);
     }
@@ -666,6 +704,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
           ..write('userFeedback: $userFeedback, ')
           ..write('actionType: $actionType, ')
           ..write('synced: $synced, ')
+          ..write('remoteId: $remoteId, ')
           ..write('imagePath: $imagePath, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -1445,6 +1484,7 @@ typedef $$SolveRecordsTableCreateCompanionBuilder = SolveRecordsCompanion
   Value<String> userFeedback,
   Value<String> actionType,
   Value<bool> synced,
+  Value<int?> remoteId,
   Value<String> imagePath,
   Value<DateTime> createdAt,
 });
@@ -1462,6 +1502,7 @@ typedef $$SolveRecordsTableUpdateCompanionBuilder = SolveRecordsCompanion
   Value<String> userFeedback,
   Value<String> actionType,
   Value<bool> synced,
+  Value<int?> remoteId,
   Value<String> imagePath,
   Value<DateTime> createdAt,
 });
@@ -1511,6 +1552,9 @@ class $$SolveRecordsTableFilterComposer
 
   ColumnFilters<bool> get synced => $composableBuilder(
       column: $table.synced, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get remoteId => $composableBuilder(
+      column: $table.remoteId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get imagePath => $composableBuilder(
       column: $table.imagePath, builder: (column) => ColumnFilters(column));
@@ -1562,11 +1606,13 @@ class $$SolveRecordsTableOrderingComposer
       builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get actionType => $composableBuilder(
-      column: $table.actionType,
-      builder: (column) => ColumnOrderings(column));
+      column: $table.actionType, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<bool> get synced => $composableBuilder(
       column: $table.synced, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get remoteId => $composableBuilder(
+      column: $table.remoteId, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get imagePath => $composableBuilder(
       column: $table.imagePath, builder: (column) => ColumnOrderings(column));
@@ -1620,6 +1666,9 @@ class $$SolveRecordsTableAnnotationComposer
   GeneratedColumn<bool> get synced =>
       $composableBuilder(column: $table.synced, builder: (column) => column);
 
+  GeneratedColumn<int> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
+
   GeneratedColumn<String> get imagePath =>
       $composableBuilder(column: $table.imagePath, builder: (column) => column);
 
@@ -1665,6 +1714,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             Value<String> userFeedback = const Value.absent(),
             Value<String> actionType = const Value.absent(),
             Value<bool> synced = const Value.absent(),
+            Value<int?> remoteId = const Value.absent(),
             Value<String> imagePath = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
           }) =>
@@ -1681,6 +1731,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             userFeedback: userFeedback,
             actionType: actionType,
             synced: synced,
+            remoteId: remoteId,
             imagePath: imagePath,
             createdAt: createdAt,
           ),
@@ -1697,6 +1748,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             Value<String> userFeedback = const Value.absent(),
             Value<String> actionType = const Value.absent(),
             Value<bool> synced = const Value.absent(),
+            Value<int?> remoteId = const Value.absent(),
             Value<String> imagePath = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
           }) =>
@@ -1713,6 +1765,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             userFeedback: userFeedback,
             actionType: actionType,
             synced: synced,
+            remoteId: remoteId,
             imagePath: imagePath,
             createdAt: createdAt,
           ),
