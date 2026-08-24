@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/solve_provider.dart';
@@ -12,7 +13,7 @@ import '../widgets/glass.dart';
 import '../widgets/thinking_indicator.dart';
 import 'answer_library_screen.dart';
 import 'answer_screen.dart';
-import 'camera_screen.dart';
+import 'image_edit_screen.dart';
 import 'knowledge_screen.dart';
 import 'settings_screen.dart';
 
@@ -25,6 +26,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
+  final _picker = ImagePicker();
 
   static const _titles = ['思谛', '知识点统计', '标准答案库', '设置'];
 
@@ -242,15 +244,28 @@ class _HomeScreenState extends State<HomeScreen> {
     BuildContext context, {
     required bool fromCamera,
   }) async {
+    // 直接调起系统相机/相册（不再经 CameraScreen 中间页，避免可见残留）。
+    final XFile? file;
+    try {
+      file = await _picker.pickImage(
+        source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      showGlassSnackBar(context, '打开相机/相册失败', error: true);
+      return;
+    }
+    if (file == null || !mounted) return;
+    // 先进入编辑页（裁切/旋转），编辑完再进入 AnswerScreen 触发解题
     final picked = await Navigator.of(context).push<String>(
       MaterialPageRoute(
-        builder: (_) => CameraScreen(initialCamera: fromCamera),
+        builder: (_) => ImageEditScreen(imagePath: file!.path),
       ),
     );
-    if (picked == null || picked.isEmpty) return;
-    if (!mounted) return;
-    // 立即进入 AnswerScreen，由其 initState 触发 solve
-    // 并就地展示流式思维链与答案——避免用户困在主页无反馈。
+    if (picked == null || picked.isEmpty || !mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => AnswerScreen(imagePath: picked),
