@@ -14,6 +14,8 @@
 /// 任意后端路由结构。
 library;
 
+import 'dart:math';
+
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -87,7 +89,7 @@ class BackendApi {
     try {
       final resp = await _dio.post<dynamic>(
         url,
-        data: {'device_id': _deviceId(), 'platform': 'android'},
+        data: {'device_id': await _deviceId(), 'platform': 'android'},
       );
       // 响应体可能为 null / 非 Map，先判型再取 id，避免首次启动崩溃。
       final data = resp.data;
@@ -231,10 +233,30 @@ class BackendApi {
     }
   }
 
-  /// 简单 device_id（基于 SharedPreferences 持久化的随机串）
-  String _deviceId() {
-    // 后端可容忍空 device_id 重复注册
-    return DateTime.now().millisecondsSinceEpoch.toRadixString(16);
+  /// 稳定设备标识（UUID，本地持久化）
+  ///
+  /// 后端注册接口按 device_id 复用用户：同一 device_id 首次注册后，
+  /// 之后再注册会返回同一个 user_id。因此该值必须在卸载重装间保持稳定，
+  /// 否则会反复创建新用户。首次调用生成 UUID v4 并持久化，之后始终复用。
+  Future<String> _deviceId() async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    var id = _prefsCache!.getString(AppConfig.keyDeviceId);
+    if (id == null || id.isEmpty) {
+      id = _generateUuid4();
+      await _prefsCache!.setString(AppConfig.keyDeviceId, id);
+    }
+    return id;
+  }
+
+  /// 生成 UUID v4（纯 Dart，Random.secure 保证随机性）
+  String _generateUuid4() {
+    final rng = Random.secure();
+    final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0F) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3F) | 0x80; // variant 10
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
   }
 }
 

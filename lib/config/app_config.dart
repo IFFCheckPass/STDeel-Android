@@ -15,6 +15,7 @@ class AppConfig {
   /// SharedPreferences keys
   static const String keyBackendUrl = 'backend_url';
   static const String keyUserId = 'user_id';
+  static const String keyDeviceId = 'device_id';
   static const String keyAiCombos = 'ai_combos_json';
   static const String keyThinkTimeoutSeconds = 'think_timeout_seconds';
 
