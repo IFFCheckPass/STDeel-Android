@@ -292,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           Center(
             child: Text(
-              '思谛 STDeel · v0.4.1',
+              '思谛 STDeel · v0.5.0',
               style: TextStyle(fontSize: 11, color: G.textFaint),
             ),
           ),
