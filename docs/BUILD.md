@@ -59,7 +59,24 @@ rm -f android/upload-keystore.jks android/key.properties
 
 ## 三、累计记录
 
-### v0.5.1（本次，待成功构建后补全）
-- 环境：Flutter SDK 需重新安装（本沙箱无预装工具链，storage.googleapis 限速 ~30-150KB/s）。
-- 状态：代码已推送 main，工具链安装受限于网络下载速度，构建待完成。
-- 成功后在此追加：实际安装命令、耗时、产物 sha、tag/Release 链接。
+### v0.5.1（✅ 已成功编译并发布）
+- **工具链（本沙箱 / Linux x64）**：
+  - Flutter **3.47.1**（stable，revision `6655482ec0`）/ Dart **3.13.1**
+  - Gradle **9.3.1**（本仓库 wrapper 指定；AGP 9.1.0 需 Gradle 9）
+  - AGP **9.1.0**、Kotlin **2.4.0**（`android/settings.gradle.kts` 内已固定）
+  - JDK **17**（`android/gradle.properties` 固定 `org.gradle.java.home=.../java/17.0.2`）
+  - Android SDK：compileSdk=36、minSdk=24、targetSdk=36、build-tools 36.0.0、**NDK 28.2.13676358**（Flutter 3.47 默认，来自 flutter_tools `gradle_utils.dart`）
+- **关键：出国源极慢（~70-150KB/s），务必用国内镜像**：
+  - Flutter SDK / 引擎产物：`FLUTTER_STORAGE_BASE_URL=https://mirrors.cloud.tencent.com/flutter`
+  - pub 依赖：`PUB_HOSTED_URL=https://pub.flutter-io.cn`
+  - Android SDK 压缩包（dl.google.com）替换为：`https://mirrors.cloud.tencent.com/AndroidSDK/<archive>`
+  - Gradle 发行包：`https://mirrors.cloud.tencent.com/gradle/gradle-9.3.1-bin.zip`
+  - Maven 依赖：项目 `android/settings.gradle.kts` 已用阿里云 `maven.aliyun.com/repository/{google,central,gradle-plugin}`
+- **Android SDK 安装关键点**：
+  - `platform-tools`、`platforms;android-36`、`build-tools;36.0.0`、`ndk;28.2.13676358` 从 Tencent 直下 zip 解压到对应目录（不要去用 sdkmanager，它走 dl.google 慢）。
+  - 版本与 zip 文件名映射见 Google `repository2-3.xml`（Tencent 也镜像该 xml）。
+  - 用 `yes | sdkmanager --licenses` 接受许可。
+- **耗时**：源码已就绪（任务1~5、6 已修），仅补编译；`flutter build apk --release` Gradle 阶段约 **756s**（首次含 AGP/Kotlin/原生 sqlite 编译）。产物 **app-release.apk 67.7MB**。
+- **签名**：从 `feature/signing-config` 分支仅取 `upload-keystore.jks` + `key.properties` 到工作区（不并入 main），临时在 `app/build.gradle.kts` 启用 release 签名；构建后恢复、删除密钥文件。校验 SHA-256 `ed7379e8...`。
+- **发布**：`gh release create v0.5.1 --prerelease`（0.5.1 < 1.0.0 → Pre-Release），产物 `app-0.5.1.apk`。
+  - 链接：https://github.com/IFFCheckPass/STDeel-Android/releases/tag/v0.5.1

@@ -70,13 +70,9 @@ class KnowledgeDao extends DatabaseAccessor<AppDatabase>
 
   /// 所有学科集合（用于顶部分学科筛选）
   Future<List<String>> getAllSubjects() async {
-    final rows = await (selectOnly(knowledgeMastery)
-          ..addColumns([knowledgeMastery.subject])
-          ..distinct())
-        .get();
+    final rows = await select(knowledgeMastery).get();
     final subjects = rows
-        .map((r) => r.read(knowledgeMastery.subject))
-        .whereType<String>()
+        .map((r) => r.subject)
         .where((s) => s.trim().isNotEmpty)
         .toSet();
     return subjects.toList();

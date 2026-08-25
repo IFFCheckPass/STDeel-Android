@@ -1160,7 +1160,8 @@ class $KnowledgeMasteryTable extends KnowledgeMastery
   late final GeneratedColumn<String> knowledgePoint = GeneratedColumn<String>(
       'knowledge_point', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _subjectMeta = const VerificationMeta('subject');
+  static const VerificationMeta _subjectMeta =
+      const VerificationMeta('subject');
   @override
   late final GeneratedColumn<String> subject = GeneratedColumn<String>(
       'subject', aliasedName, false,
@@ -1350,8 +1351,7 @@ class KnowledgeMasteryEntity extends DataClass
       knowledgePoint: data.knowledgePoint.present
           ? data.knowledgePoint.value
           : this.knowledgePoint,
-      subject:
-          data.subject.present ? data.subject.value : this.subject,
+      subject: data.subject.present ? data.subject.value : this.subject,
       correctCount: data.correctCount.present
           ? data.correctCount.value
           : this.correctCount,
@@ -1375,8 +1375,8 @@ class KnowledgeMasteryEntity extends DataClass
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, knowledgePoint, subject, correctCount, wrongCount, updatedAt);
+  int get hashCode => Object.hash(
+      id, knowledgePoint, subject, correctCount, wrongCount, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1408,7 +1408,7 @@ class KnowledgeMasteryCompanion
   KnowledgeMasteryCompanion.insert({
     this.id = const Value.absent(),
     required String knowledgePoint,
-    this.subject = const Value('未分类'),
+    this.subject = const Value.absent(),
     this.correctCount = const Value.absent(),
     this.wrongCount = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -2047,6 +2047,7 @@ typedef $$KnowledgeMasteryTableCreateCompanionBuilder
     = KnowledgeMasteryCompanion Function({
   Value<int> id,
   required String knowledgePoint,
+  Value<String> subject,
   Value<int> correctCount,
   Value<int> wrongCount,
   Value<DateTime> updatedAt,
@@ -2055,6 +2056,7 @@ typedef $$KnowledgeMasteryTableUpdateCompanionBuilder
     = KnowledgeMasteryCompanion Function({
   Value<int> id,
   Value<String> knowledgePoint,
+  Value<String> subject,
   Value<int> correctCount,
   Value<int> wrongCount,
   Value<DateTime> updatedAt,
@@ -2075,6 +2077,9 @@ class $$KnowledgeMasteryTableFilterComposer
   ColumnFilters<String> get knowledgePoint => $composableBuilder(
       column: $table.knowledgePoint,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get subject => $composableBuilder(
+      column: $table.subject, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get correctCount => $composableBuilder(
       column: $table.correctCount, builder: (column) => ColumnFilters(column));
@@ -2102,6 +2107,9 @@ class $$KnowledgeMasteryTableOrderingComposer
       column: $table.knowledgePoint,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get subject => $composableBuilder(
+      column: $table.subject, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get correctCount => $composableBuilder(
       column: $table.correctCount,
       builder: (column) => ColumnOrderings(column));
@@ -2127,6 +2135,9 @@ class $$KnowledgeMasteryTableAnnotationComposer
 
   GeneratedColumn<String> get knowledgePoint => $composableBuilder(
       column: $table.knowledgePoint, builder: (column) => column);
+
+  GeneratedColumn<String> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
 
   GeneratedColumn<int> get correctCount => $composableBuilder(
       column: $table.correctCount, builder: (column) => column);
@@ -2168,6 +2179,7 @@ class $$KnowledgeMasteryTableTableManager extends RootTableManager<
           updateCompanionCallback: ({
             Value<int> id = const Value.absent(),
             Value<String> knowledgePoint = const Value.absent(),
+            Value<String> subject = const Value.absent(),
             Value<int> correctCount = const Value.absent(),
             Value<int> wrongCount = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -2175,6 +2187,7 @@ class $$KnowledgeMasteryTableTableManager extends RootTableManager<
               KnowledgeMasteryCompanion(
             id: id,
             knowledgePoint: knowledgePoint,
+            subject: subject,
             correctCount: correctCount,
             wrongCount: wrongCount,
             updatedAt: updatedAt,
@@ -2182,6 +2195,7 @@ class $$KnowledgeMasteryTableTableManager extends RootTableManager<
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             required String knowledgePoint,
+            Value<String> subject = const Value.absent(),
             Value<int> correctCount = const Value.absent(),
             Value<int> wrongCount = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -2189,6 +2203,7 @@ class $$KnowledgeMasteryTableTableManager extends RootTableManager<
               KnowledgeMasteryCompanion.insert(
             id: id,
             knowledgePoint: knowledgePoint,
+            subject: subject,
             correctCount: correctCount,
             wrongCount: wrongCount,
             updatedAt: updatedAt,

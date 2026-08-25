@@ -239,7 +239,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   }
 
   /// 知识点的常用学科目录（便于快速归类）
-  static const _subjects = <String>[
+  static const _subjectChoices = <String>[
     '未分类',
     '数学',
     '语文',
@@ -271,7 +271,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final s in _subjects)
+                for (final s in _subjectChoices)
                   ChoiceChip(
                     label: Text(s),
                     selected: p.subject == s,
