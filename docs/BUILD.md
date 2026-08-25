@@ -87,3 +87,20 @@ rm -f android/upload-keystore.jks android/key.properties
 - 构建：`flutter build apk --release -PsigningEnabled`，Gradle 阶段 **47.8s**（增量热缓存，非首次 756s）。产物 67.7MB。
 - 校验：`apksigner verify --print-certs` → SHA-256 `ed7379e8...`（与首发一致）。`gh release upload v0.5.1 app-0.5.1.apk --clobber`。
 - 收尾：`git checkout -- android/app/build.gradle.kts` 还原，删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.5.1.apk`，保持 `main` 干净。
+
+### v0.5.5（✅ 已成功编译并发布）
+- 版本：`pubspec.yaml version: 0.5.5+11`；`settings_screen.dart` 底部文案 `v0.5.5`。
+- **关键新增依赖**：`file_picker ^8.0.0`（选 PDF/Word）、`pdfx ^2.11.0`（PDF 渲染为图片、docx 解压提取文本）、`archive ^3.6.0`。
+- **⚠️ compileSdk 36 强制覆盖（本次新增的重要坑）**：
+  - 报错：`:file_picker:checkReleaseAarMetadata` — `flutter_plugin_android_lifecycle` 要求依赖方 compileSdk>=36，而 `file_picker` 固定 `compileSdk 34`。
+  - 直接用根 `android/build.gradle.kts` 的 `subprojects { afterEvaluate { ... compileSdk = 36 } }` 会抛 `Cannot run Project.afterEvaluate when the project is already evaluated`（Flutter Gradle 插件重入求值导致），且载入时 `plugins.withId` 的扩展配置会被插件自带 `android { compileSdk = 34 }` 覆盖。
+  - **有效方案**：直接改 pub-cache 里插件源码：
+    ```bash
+    sed -i 's/compileSdk 34/compileSdk 36/' /root/.pub-cache/hosted/pub.flutter-io.cn/file_picker-8.3.7/android/build.gradle
+    ```
+    本次仅 `file_picker` 依赖 lifecycle 报了错；`flutter_local_notifications/pdfx/jni*` 虽也固定更低 SDK 但无该依赖，无需改。
+- **构建**：`flutter build apk --release -PsigningEnabled`，Gradle 阶段 **115.7s**（增量）。产物 **app-release.apk 68.0MB**。
+- **签名**：与 v0.5.1 相同证书，SHA-256 `ed7379e83486704322dba43361dde16c307fe64f8fdabdc7e437f70eb457f933`（`apksigner verify --print-certs`）。产物改名 `app-0.5.5.apk`。
+- **代码同步**：先 `git push` 源码到 `main`（commit `8ff2471`），再 `gh release create v0.5.5 --prerelease app-0.5.5.apk`（0.5.5 < 1.0.0 → Pre-Release）。
+  - 链接：https://github.com/IFFCheckPass/STDeel-Android/releases/tag/v0.5.5
+- 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.5.5.apk`，保持 `main` 干净。
