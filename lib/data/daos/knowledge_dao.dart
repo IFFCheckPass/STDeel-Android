@@ -13,9 +13,13 @@ class KnowledgeDao extends DatabaseAccessor<AppDatabase>
     with _$KnowledgeDaoMixin {
   KnowledgeDao(super.db);
 
-  /// upsert：知识点已存在则累加，否则插入
+  /// upsert：知识点已存在则累加，否则插入。
+  ///
+  /// 归并时以知识点名称为键；[subject] 仅在建新知识点时生效，
+  /// 已有知识点忽略传入的 subject（学科归属由用户在知识点管理页维护）。
   Future<void> upsert({
     required String knowledgePoint,
+    String subject = '未分类',
     int deltaCorrect = 0,
     int deltaWrong = 0,
   }) async {
@@ -27,6 +31,7 @@ class KnowledgeDao extends DatabaseAccessor<AppDatabase>
     if (existing == null) {
       await into(knowledgeMastery).insert(KnowledgeMasteryCompanion.insert(
         knowledgePoint: knowledgePoint,
+        subject: Value(subject),
         correctCount: Value(deltaCorrect),
         wrongCount: Value(deltaWrong),
       ));
@@ -39,6 +44,42 @@ class KnowledgeDao extends DatabaseAccessor<AppDatabase>
         updatedAt: Value(DateTime.now()),
       ));
     }
+  }
+
+  /// 给指定知识点重设学科归属（知识点管理分学科）
+  Future<void> setSubject(String knowledgePoint, String subject) async {
+    final existing = await (select(knowledgeMastery)
+          ..where((t) => t.knowledgePoint.equals(knowledgePoint))
+          ..limit(1))
+        .getSingleOrNull();
+    if (existing == null) return;
+    await (update(knowledgeMastery)
+          ..where((t) => t.id.equals(existing.id)))
+        .write(KnowledgeMasteryCompanion(
+      subject: Value(subject.trim().isEmpty ? '未分类' : subject.trim()),
+      updatedAt: Value(DateTime.now()),
+    ));
+  }
+
+  /// 某个学科下的知识点列表
+  Future<List<KnowledgeMasteryEntity>> getBySubject(String subject) =>
+      (select(knowledgeMastery)
+            ..where((t) => t.subject.equals(subject))
+            ..orderBy([(t) => OrderingTerm.desc(t.correctCount)]))
+          .get();
+
+  /// 所有学科集合（用于顶部分学科筛选）
+  Future<List<String>> getAllSubjects() async {
+    final rows = await (selectOnly(knowledgeMastery)
+          ..addColumns([knowledgeMastery.subject])
+          ..distinct())
+        .get();
+    final subjects = rows
+        .map((r) => r.read(knowledgeMastery.subject))
+        .whereType<String>()
+        .where((s) => s.trim().isNotEmpty)
+        .toSet();
+    return subjects.toList();
   }
 
   Future<List<KnowledgeMasteryEntity>> getAll() =>

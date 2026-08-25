@@ -1160,6 +1160,13 @@ class $KnowledgeMasteryTable extends KnowledgeMastery
   late final GeneratedColumn<String> knowledgePoint = GeneratedColumn<String>(
       'knowledge_point', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _subjectMeta = const VerificationMeta('subject');
+  @override
+  late final GeneratedColumn<String> subject = GeneratedColumn<String>(
+      'subject', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('未分类'));
   static const VerificationMeta _correctCountMeta =
       const VerificationMeta('correctCount');
   @override
@@ -1186,7 +1193,7 @@ class $KnowledgeMasteryTable extends KnowledgeMastery
       defaultValue: currentDateAndTime);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, knowledgePoint, correctCount, wrongCount, updatedAt];
+      [id, knowledgePoint, subject, correctCount, wrongCount, updatedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1208,6 +1215,10 @@ class $KnowledgeMasteryTable extends KnowledgeMastery
               data['knowledge_point']!, _knowledgePointMeta));
     } else if (isInserting) {
       context.missing(_knowledgePointMeta);
+    }
+    if (data.containsKey('subject')) {
+      context.handle(_subjectMeta,
+          subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta));
     }
     if (data.containsKey('correct_count')) {
       context.handle(
@@ -1238,6 +1249,8 @@ class $KnowledgeMasteryTable extends KnowledgeMastery
           .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
       knowledgePoint: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}knowledge_point'])!,
+      subject: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}subject'])!,
       correctCount: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}correct_count'])!,
       wrongCount: attachedDatabase.typeMapping
@@ -1257,12 +1270,14 @@ class KnowledgeMasteryEntity extends DataClass
     implements Insertable<KnowledgeMasteryEntity> {
   final int id;
   final String knowledgePoint;
+  final String subject;
   final int correctCount;
   final int wrongCount;
   final DateTime updatedAt;
   const KnowledgeMasteryEntity(
       {required this.id,
       required this.knowledgePoint,
+      required this.subject,
       required this.correctCount,
       required this.wrongCount,
       required this.updatedAt});
@@ -1271,6 +1286,7 @@ class KnowledgeMasteryEntity extends DataClass
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['knowledge_point'] = Variable<String>(knowledgePoint);
+    map['subject'] = Variable<String>(subject);
     map['correct_count'] = Variable<int>(correctCount);
     map['wrong_count'] = Variable<int>(wrongCount);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -1281,6 +1297,7 @@ class KnowledgeMasteryEntity extends DataClass
     return KnowledgeMasteryCompanion(
       id: Value(id),
       knowledgePoint: Value(knowledgePoint),
+      subject: Value(subject),
       correctCount: Value(correctCount),
       wrongCount: Value(wrongCount),
       updatedAt: Value(updatedAt),
@@ -1293,6 +1310,7 @@ class KnowledgeMasteryEntity extends DataClass
     return KnowledgeMasteryEntity(
       id: serializer.fromJson<int>(json['id']),
       knowledgePoint: serializer.fromJson<String>(json['knowledgePoint']),
+      subject: serializer.fromJson<String>(json['subject']),
       correctCount: serializer.fromJson<int>(json['correctCount']),
       wrongCount: serializer.fromJson<int>(json['wrongCount']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -1304,6 +1322,7 @@ class KnowledgeMasteryEntity extends DataClass
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'knowledgePoint': serializer.toJson<String>(knowledgePoint),
+      'subject': serializer.toJson<String>(subject),
       'correctCount': serializer.toJson<int>(correctCount),
       'wrongCount': serializer.toJson<int>(wrongCount),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -1313,12 +1332,14 @@ class KnowledgeMasteryEntity extends DataClass
   KnowledgeMasteryEntity copyWith(
           {int? id,
           String? knowledgePoint,
+          String? subject,
           int? correctCount,
           int? wrongCount,
           DateTime? updatedAt}) =>
       KnowledgeMasteryEntity(
         id: id ?? this.id,
         knowledgePoint: knowledgePoint ?? this.knowledgePoint,
+        subject: subject ?? this.subject,
         correctCount: correctCount ?? this.correctCount,
         wrongCount: wrongCount ?? this.wrongCount,
         updatedAt: updatedAt ?? this.updatedAt,
@@ -1329,6 +1350,8 @@ class KnowledgeMasteryEntity extends DataClass
       knowledgePoint: data.knowledgePoint.present
           ? data.knowledgePoint.value
           : this.knowledgePoint,
+      subject:
+          data.subject.present ? data.subject.value : this.subject,
       correctCount: data.correctCount.present
           ? data.correctCount.value
           : this.correctCount,
@@ -1343,6 +1366,7 @@ class KnowledgeMasteryEntity extends DataClass
     return (StringBuffer('KnowledgeMasteryEntity(')
           ..write('id: $id, ')
           ..write('knowledgePoint: $knowledgePoint, ')
+          ..write('subject: $subject, ')
           ..write('correctCount: $correctCount, ')
           ..write('wrongCount: $wrongCount, ')
           ..write('updatedAt: $updatedAt')
@@ -1352,13 +1376,14 @@ class KnowledgeMasteryEntity extends DataClass
 
   @override
   int get hashCode =>
-      Object.hash(id, knowledgePoint, correctCount, wrongCount, updatedAt);
+      Object.hash(id, knowledgePoint, subject, correctCount, wrongCount, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is KnowledgeMasteryEntity &&
           other.id == this.id &&
           other.knowledgePoint == this.knowledgePoint &&
+          other.subject == this.subject &&
           other.correctCount == this.correctCount &&
           other.wrongCount == this.wrongCount &&
           other.updatedAt == this.updatedAt);
@@ -1368,12 +1393,14 @@ class KnowledgeMasteryCompanion
     extends UpdateCompanion<KnowledgeMasteryEntity> {
   final Value<int> id;
   final Value<String> knowledgePoint;
+  final Value<String> subject;
   final Value<int> correctCount;
   final Value<int> wrongCount;
   final Value<DateTime> updatedAt;
   const KnowledgeMasteryCompanion({
     this.id = const Value.absent(),
     this.knowledgePoint = const Value.absent(),
+    this.subject = const Value.absent(),
     this.correctCount = const Value.absent(),
     this.wrongCount = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -1381,6 +1408,7 @@ class KnowledgeMasteryCompanion
   KnowledgeMasteryCompanion.insert({
     this.id = const Value.absent(),
     required String knowledgePoint,
+    this.subject = const Value('未分类'),
     this.correctCount = const Value.absent(),
     this.wrongCount = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -1388,6 +1416,7 @@ class KnowledgeMasteryCompanion
   static Insertable<KnowledgeMasteryEntity> custom({
     Expression<int>? id,
     Expression<String>? knowledgePoint,
+    Expression<String>? subject,
     Expression<int>? correctCount,
     Expression<int>? wrongCount,
     Expression<DateTime>? updatedAt,
@@ -1395,6 +1424,7 @@ class KnowledgeMasteryCompanion
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (knowledgePoint != null) 'knowledge_point': knowledgePoint,
+      if (subject != null) 'subject': subject,
       if (correctCount != null) 'correct_count': correctCount,
       if (wrongCount != null) 'wrong_count': wrongCount,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -1404,12 +1434,14 @@ class KnowledgeMasteryCompanion
   KnowledgeMasteryCompanion copyWith(
       {Value<int>? id,
       Value<String>? knowledgePoint,
+      Value<String>? subject,
       Value<int>? correctCount,
       Value<int>? wrongCount,
       Value<DateTime>? updatedAt}) {
     return KnowledgeMasteryCompanion(
       id: id ?? this.id,
       knowledgePoint: knowledgePoint ?? this.knowledgePoint,
+      subject: subject ?? this.subject,
       correctCount: correctCount ?? this.correctCount,
       wrongCount: wrongCount ?? this.wrongCount,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -1424,6 +1456,9 @@ class KnowledgeMasteryCompanion
     }
     if (knowledgePoint.present) {
       map['knowledge_point'] = Variable<String>(knowledgePoint.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<String>(subject.value);
     }
     if (correctCount.present) {
       map['correct_count'] = Variable<int>(correctCount.value);
@@ -1442,6 +1477,7 @@ class KnowledgeMasteryCompanion
     return (StringBuffer('KnowledgeMasteryCompanion(')
           ..write('id: $id, ')
           ..write('knowledgePoint: $knowledgePoint, ')
+          ..write('subject: $subject, ')
           ..write('correctCount: $correctCount, ')
           ..write('wrongCount: $wrongCount, ')
           ..write('updatedAt: $updatedAt')

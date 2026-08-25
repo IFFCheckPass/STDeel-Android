@@ -4,6 +4,7 @@ library;
 class KnowledgePoint {
   KnowledgePoint({
     required this.name,
+    this.subject = '未分类',
     this.correctCount = 0,
     this.wrongCount = 0,
   });
@@ -22,12 +23,14 @@ class KnowledgePoint {
       totalCount > 0 && errorRate > 0.5;
 
   final String name;
+  final String subject;
   final int correctCount;
   final int wrongCount;
 
   KnowledgePoint copyWith({int? correctCount, int? wrongCount}) =>
       KnowledgePoint(
         name: name,
+        subject: subject,
         correctCount: correctCount ?? this.correctCount,
         wrongCount: wrongCount ?? this.wrongCount,
       );

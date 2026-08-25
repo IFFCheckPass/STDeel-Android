@@ -21,6 +21,30 @@ import '../data/database.dart';
 import '../models/solve_result.dart';
 import 'backend_api.dart';
 
+/// 一次手动同步的结果统计，用于设置页展示"上传成功/失败 x 条、回写 x 条"。
+class SyncResult {
+  const SyncResult({
+    this.uploaded = 0,
+    this.uploadFailed = 0,
+    this.pulled = 0,
+  });
+
+  /// 本地上行成功的记录数
+  final int uploaded;
+  /// 本地上行失败的记录数
+  final int uploadFailed;
+  /// 从后端下拉并写回本地（新增或更新）的记录数
+  final int pulled;
+
+  bool get hasFailure => uploadFailed > 0;
+  int get totalUploaded => uploaded + uploadFailed;
+
+  @override
+  String toString() =>
+      '上传成功 ${uploaded} 条${uploadFailed > 0 ? '，失败 $uploadFailed 条' : '，无失败'}'
+      '，回写 $pulled 条';
+}
+
 class SyncService {
   SyncService({
     required AppDatabase database,
@@ -134,8 +158,11 @@ class SyncService {
   }
 
   /// 联网后批量同步尚未上传的解题记录
-  Future<void> flushUnsynced() async {
+  /// @return 上传成功 / 失败 条数
+  Future<({int success, int failed})> flushUnsynced() async {
     final records = await _db.solveRecordDao.getUnsynced();
+    var success = 0;
+    var failed = 0;
     for (final r in records) {
       try {
         await _api.uploadSolveRecord({
@@ -152,6 +179,7 @@ class SyncService {
         });
       } catch (_) {
         // 网络/后端失败：保留记录待下次重试。
+        failed++;
         continue;
       }
       try {
@@ -161,13 +189,17 @@ class SyncService {
         // 在此单独记录错误，交由上层/日志处理，不再重复上传。
         debugPrint('flushUnsynced: 记录 ${r.id} 上传成功但 markSynced 失败: $e');
       }
+      success++;
     }
+    return (success: success, failed: failed);
   }
 
   /// 下拉后端解题记录并写回本地（仅正确=近1个月 / 错误=近3个月）。
   ///
   /// 按后端主键 remoteId 幂等合并，避免重复插入。后端未适配或失败时静默。
-  Future<void> pullSolveRecords() async {
+  /// @return 写回本地（新增或更新）的记录条数
+  Future<int> pullSolveRecords() async {
+    var applied = 0;
     try {
       final rows = await _api.fetchSolveRecords(
         correctDays: 30,
@@ -195,15 +227,23 @@ class SyncService {
                   ? DateTime.tryParse(row['created_at'])
                   : null,
         );
+        applied++;
       }
     } catch (_) {
       // 后端未实现下拉接口或网络失败：静默，仅保留上行能力。
     }
+    return applied;
   }
 
   /// 手动同步入口：先上行补传本地未同步记录，再从后端下拉回写缺失记录。
-  Future<void> syncAll() async {
-    await flushUnsynced();
-    await pullSolveRecords();
+  /// @return 各阶段计数，供 UI 展示"成功/失败 x 条"。
+  Future<SyncResult> syncAll() async {
+    final upload = await flushUnsynced();
+    final pulled = await pullSolveRecords();
+    return SyncResult(
+      uploaded: upload.success,
+      uploadFailed: upload.failed,
+      pulled: pulled,
+    );
   }
 }

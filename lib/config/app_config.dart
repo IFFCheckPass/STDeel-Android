@@ -13,7 +13,9 @@ class AppConfig {
   static const String defaultBackendUrl = 'https://api.stdeel.com/api/v1';
 
   /// SharedPreferences keys
-  static const String keyBackendUrl = 'backend_url';
+  static const String keyBackendUrl = 'backend_url'; // 公网，兼容旧版本字段
+  static const String keyBackendUrlIntranet = 'backend_url_intranet'; // 内网
+  static const String keyBackendUsePublic = 'backend_use_public'; // 默认走公网
   static const String keyUserId = 'user_id';
   static const String keyDeviceId = 'device_id';
   static const String keyUsername = 'username';
@@ -24,10 +26,9 @@ class AppConfig {
 
   /// 账号绑定（用户名 / api-key 同步）功能开关
   ///
-  /// 后端 api-key 同步尚未对接完成。在适配完成前该功能一律隐藏，
-  /// 避免本机注册的 user_id 与远端 username 归属冲突、造成数据污染。
-  /// 待接口就绪后改为 true 即可上线设置页中的用户名绑定入口。
-  static const bool kAccountBindingEnabled = false;
+  /// 后端已适配"仅传 username → 按 username 找或创建"接口，现开放设置页
+  /// 中的用户名绑定入口；api-key 跨端同步按需触发上传。
+  static const bool kAccountBindingEnabled = true;
 
   /// 默认 think 检测超时（秒）
   static const int defaultThinkTimeoutSeconds = 20;

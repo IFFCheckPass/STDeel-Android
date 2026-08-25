@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../models/ai_combo.dart';
 import '../providers/settings_provider.dart';
+import '../services/backend_api.dart';
 import '../services/sync_service.dart';
 import '../widgets/glass.dart';
 import 'combo_edit_screen.dart';
@@ -25,6 +26,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _urlCtrl;
+  late TextEditingController _usernameCtrl;
   bool _initialized = false;
 
   @override
@@ -33,14 +35,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_initialized) return;
     final s = context.read<SettingsProvider>();
     _urlCtrl = TextEditingController(text: s.backendUrl);
+    _usernameCtrl = TextEditingController(text: s.username ?? '');
     _initialized = true;
   }
 
   @override
   void dispose() {
-    // _urlCtrl 为 late，仅在 didChangeDependencies 中初始化；若在首次构建前即被
-    // dispose（极端情况下），跳过释放以免抛 LateInitializationError。
-    if (_initialized) _urlCtrl.dispose();
+    // 仅在 didChangeDependencies 中初始化；若在首次构建前即被 dispose（极端情况下），
+    // 跳过释放以免抛 LateInitializationError。
+    if (_initialized) {
+      _urlCtrl.dispose();
+      _usernameCtrl.dispose();
+    }
     super.dispose();
   }
 
@@ -226,20 +232,103 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 28),
 
+          // ===== 账号绑定 =====
+          GlassSectionTitle('账户'),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.person_outline, color: G.accent, size: 18),
+                    const SizedBox(width: 10),
+                    const Text('用户名', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    if (s.username != null && s.username!.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: G.mint.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: G.mint.withOpacity(0.4)),
+                        ),
+                        child: const Text('已绑定', style: TextStyle(fontSize: 10, color: G.mint)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _usernameCtrl,
+                  decoration: const InputDecoration(
+                    hintText: '例如：张三 / student01',
+                    prefixIcon: Icon(Icons.badge_outlined),
+                    helperText: '设置用户名并绑定账号后，多设备用同一用户名即可共享同一份数据',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: () => _saveUsername(context, s),
+                  icon: const Icon(Icons.link, size: 18),
+                  label: const Text('绑定 / 同步'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '绑定后会把本机已配置的 AI API Key 一并上传到该账号，换设备登录后自动拉回。',
+                  style: TextStyle(fontSize: 11, color: G.textFaint, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
           // ===== 后端与数据 =====
           GlassSectionTitle('后端与数据'),
           GlassCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // 公网 / 内网 通道切换
+                Row(
+                  children: [
+                    const Icon(Icons.public, color: G.accent, size: 18),
+                    const SizedBox(width: 10),
+                    const Text('后端通道', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: true,
+                      label: Text('公网'),
+                      icon: Icon(Icons.cloud_outlined),
+                    ),
+                    ButtonSegment(
+                      value: false,
+                      label: Text('内网'),
+                      icon: Icon(Icons.router_outlined),
+                    ),
+                  ],
+                  selected: {s.usePublicBackend},
+                  onSelectionChanged: (sel) =>
+                      _selectChannel(context, s, sel.first),
+                  showSelectedIcon: false,
+                ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _urlCtrl,
                   keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(
-                    labelText: '后端 API URL',
-                    hintText: 'https://api.stdeel.com/api/v1',
-                    prefixIcon: Icon(Icons.dns_outlined),
-                    helperText: '填到 API 根的完整地址（含协议、host 及前缀路径）',
+                  decoration: InputDecoration(
+                    labelText: s.usePublicBackend ? '公网 API URL' : '内网 API URL',
+                    hintText: s.usePublicBackend
+                        ? 'https://api.stdeel.com/api/v1'
+                        : 'http://192.168.1.10:8000/api/v1',
+                    prefixIcon: Icon(
+                      s.usePublicBackend ? Icons.public : Icons.apartment,
+                    ),
+                    helperText: '内网支持 http 协议与端口号，如 http://192.168.1.10:8000/api/v1',
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -247,9 +336,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
                   child: Text(
                     '示例：\n'
-                    '  · 标准：https://api.stdeel.com/api/v1\n'
-                    '  · 反代：https://snserver.dpdns.org/stapi\n'
-                    '保存时自动补全协议、去掉尾部斜杠，路径前缀原样保留。',
+                    '  · 公网：https://api.stdeel.com/api/v1\n'
+                    '  · 内网：http://192.168.x.x:8000/api/v1（同网段直连调试）\n'
+                    '保存时自动补全协议、去掉尾部斜杠，路径前缀与端口号原样保留。',
                     style: TextStyle(fontSize: 11, color: G.textFaint, height: 1.5),
                   ),
                 ),
@@ -292,12 +381,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           Center(
             child: Text(
-              '思谛 STDeel · v0.5.0',
+              '思谛 STDeel · v0.5.1',
               style: TextStyle(fontSize: 11, color: G.textFaint),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  /// 绑定 / 同步：设置用户名 → 后端按 username 找或创建用户 → 上传 AI API Key
+  Future<void> _saveUsername(BuildContext context, SettingsProvider s) async {
+    final name = _usernameCtrl.text.trim();
+    if (name.isEmpty) {
+      showGlassSnackBar(context, '请输入用户名', error: true);
+      return;
+    }
+    showGlassSnackBar(context, '正在绑定账号…');
+    final ok = await s.setUsername(name);
+    if (!mounted) return;
+    if (ok) {
+      showGlassSnackBar(context, '账号绑定成功', success: true);
+      // 上传本机 AI API Key 到账号（跨端同步）
+      final keys = <String, String>{};
+      for (final c in s.combos) {
+        if (c.isComplete && c.apiKey.trim().isNotEmpty) {
+          keys[c.name] = c.apiKey.trim();
+        }
+      }
+      final api = context.read<BackendApi>();
+      final okKey = await api.syncUserApiKeys(keys);
+      if (mounted && !okKey) {
+        showGlassSnackBar(
+          context,
+          '用户名已绑定，但 API Key 同步失败（可稍后重试）',
+          error: true,
+        );
+      }
+    } else {
+      showGlassSnackBar(
+        context,
+        '后端绑定未成功（后端未适配或网络异常），用户名已保存在本机',
+        error: true,
+      );
+    }
+  }
+
+  /// 切换公网/内网通道时，把输入框内容切到对应通道的已保存 URL
+  void _selectChannel(BuildContext context, SettingsProvider s, bool usePublic) {
+    if (s.usePublicBackend == usePublic) return;
+    s.setUsePublicBackend(usePublic);
+    final target = usePublic ? s.backendUrlPublic : s.backendUrlIntranet;
+    _urlCtrl.value = TextEditingValue(
+      text: target.isEmpty ? '' : target,
+      selection: TextSelection.collapsed(offset: target.length),
     );
   }
 
@@ -307,15 +444,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       showGlassSnackBar(context, 'URL 不能为空', error: true);
       return;
     }
-    // 规范化：补全 https://、去尾部斜杠、保留子路径（如 /stapi）
+    // 规范化：补全 https://、去尾部斜杠、保留子路径与端口号
     final normalized = normalizeBaseUrl(url);
     _urlCtrl.value = TextEditingValue(
       text: normalized,
       selection: TextSelection.collapsed(offset: normalized.length),
     );
-    await s.setBackendUrl(normalized);
-    if (!mounted) return;
-    showGlassSnackBar(context, '后端 URL 已保存', success: true);
+    if (s.usePublicBackend) {
+      await s.setBackendUrlPublic(normalized);
+      showGlassSnackBar(context, '公网后端 URL 已保存', success: true);
+    } else {
+      await s.setBackendUrlIntranet(normalized);
+      showGlassSnackBar(context, '内网后端 URL 已保存', success: true);
+    }
   }
 
   Future<void> _ping(BuildContext context, SettingsProvider s) async {
@@ -334,9 +475,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       // 双向同步：先上传本地未同步记录，再下拉后端缺失记录
-      await sync.syncAll();
+      final result = await sync.syncAll();
+      final msg = result.hasFailure
+          ? '同步完成：上传成功 ${result.uploaded} 条、失败 ${result.uploadFailed} 条，回写 ${result.pulled} 条'
+          : '同步成功：上传 ${result.uploaded} 条，回写 ${result.pulled} 条';
       messenger.showSnackBar(
-        const SnackBar(content: Text('同步完成：本地记录已上传，后端记录已回写')),
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: result.hasFailure ? G.coral : G.mint,
+        ),
       );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('同步失败：$e')));

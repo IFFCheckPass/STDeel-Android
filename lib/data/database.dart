@@ -31,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase._();
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -61,6 +61,16 @@ class AppDatabase extends _$AppDatabase {
             );
             await customStatement(
               'CREATE INDEX IF NOT EXISTS idx_solve_remote ON solve_records(remote_id)',
+            );
+          }
+          // v3 -> v4：知识点分学科（subject 列，默认"未分类"）
+          if (from < 4) {
+            await m.addColumn(
+              knowledgeMastery,
+              knowledgeMastery.subject,
+            );
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_knowledge_subject ON knowledge_mastery(subject)',
             );
           }
         },

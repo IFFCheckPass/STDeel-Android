@@ -13,6 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/database.dart';
+import '../providers/settings_provider.dart';
+import '../providers/solve_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/glass.dart';
 
@@ -288,26 +290,38 @@ class _HistoryCardState extends State<_HistoryCard> {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: G.coral,
-                          side: BorderSide(
-                              color: G.coral.withOpacity(0.4)),
-                          minimumSize:
-                              const Size.fromHeight(36),
-                        ),
-                        icon: const Icon(Icons.cancel_rounded, size: 16),
-                        label: const Text('错误'),
+                      child: _actionBtn(
+                        label: '重答',
+                        color: G.accent,
+                        icon: Icons.refresh_rounded,
+                        onPressed: () => _retryOrDetail(actionType: 'retry'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _actionBtn(
+                        label: '疑问',
+                        color: G.amber,
+                        icon: Icons.help_outline_rounded,
+                        onPressed: () => _retryOrDetail(actionType: 'detail'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _actionBtn(
+                        label: '错误',
+                        color: G.coral,
+                        icon: Icons.close_rounded,
                         onPressed: () => _markFeedback('wrong'),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
                           backgroundColor: G.mint,
                           minimumSize:
-                              const Size.fromHeight(36),
+                              const Size.fromHeight(38),
                         ),
                         icon: const Icon(Icons.check_rounded, size: 16),
                         label: const Text('正确'),
@@ -322,6 +336,63 @@ class _HistoryCardState extends State<_HistoryCard> {
         ),
       ),
     );
+  }
+
+  /// 四个颜色统一的反馈/动作按钮（样式贴近解题页 AnswerCard）
+  Widget _actionBtn({
+    required String label,
+    required Color color,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withOpacity(0.4)),
+        minimumSize: const Size.fromHeight(38),
+        backgroundColor: color.withOpacity(0.08),
+      ),
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      onPressed: onPressed,
+    );
+  }
+
+  /// 重答 / 疑问：复用 Solver 的纯文本题解，就地覆盖历史记录并跳转到解题页查看
+  Future<void> _retryOrDetail({required String actionType}) async {
+    final r = widget.record;
+    final solve = context.read<SolveProvider>();
+    final settings = context.read<SettingsProvider>();
+    final models = settings.buildModelChain();
+    if (models.isEmpty) {
+      showGlassSnackBar(
+        context,
+        '请先到「设置 → AI 模型组合」填写 API Key 并启用组合',
+        error: true,
+      );
+      return;
+    }
+    showGlassSnackBar(
+      context,
+      actionType == 'retry' ? '正在重答…' : '正在生成分步解答…',
+    );
+    final f = actionType == 'retry'
+        ? solve.retry(
+            questionId: r.id,
+            questionText: r.questionText.isEmpty ? '（请补充题干）' : r.questionText,
+            models: models,
+            thinkTimeout: settings.thinkTimeout,
+          )
+        : solve.askDetailed(
+            questionId: r.id,
+            questionText: r.questionText.isEmpty ? '（请补充题干）' : r.questionText,
+            models: models,
+            thinkTimeout: settings.thinkTimeout,
+          );
+    await f;
+    if (!mounted) return;
+    await Navigator.of(context).pushNamed('/answer');
+    widget.onChanged();
   }
 
   Widget _buildSection(String label, String body, {Color? color}) {

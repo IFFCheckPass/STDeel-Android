@@ -21,7 +21,9 @@ class SettingsProvider extends ChangeNotifier {
 
   final BackendApi _api;
 
-  String _backendUrl = AppConfig.defaultBackendUrl;
+  String _publicUrl = AppConfig.defaultBackendUrl;
+  String _intranetUrl = '';
+  bool _usePublic = true;
   List<AiCombo> _combos = [];
   int _thinkTimeout = AppConfig.defaultThinkTimeoutSeconds;
   bool _pinging = false;
@@ -31,7 +33,13 @@ class SettingsProvider extends ChangeNotifier {
   // 账号绑定（默认隐藏）：username 与 api-key 跨端同步，待后端适配后开放。
   String? _username;
 
-  String get backendUrl => _backendUrl;
+  /// 当前使用的后端 URL（按所选通道返回，供旧的单一 URL 字段使用）
+  String get backendUrl => _usePublic
+      ? _publicUrl
+      : (_intranetUrl.trim().isEmpty ? _publicUrl : _intranetUrl);
+  String get backendUrlPublic => _publicUrl;
+  String get backendUrlIntranet => _intranetUrl;
+  bool get usePublicBackend => _usePublic;
   List<AiCombo> get combos => List.unmodifiable(_combos);
   int get thinkTimeout => _thinkTimeout;
   bool get pinging => _pinging;
@@ -45,7 +53,9 @@ class SettingsProvider extends ChangeNotifier {
       _combos.where((c) => c.enabled && c.isComplete).toList();
 
   Future<void> load() async {
-    _backendUrl = await _api.getBackendUrl();
+    _publicUrl = await _api.getBackendUrlPublic();
+    _intranetUrl = await _api.getBackendUrlIntranet() ?? '';
+    _usePublic = await _api.getUsePublicBackend();
     _thinkTimeout = await _api.getThinkTimeoutSeconds();
     _username = await _api.getUsername();
     _themeMode = _parseThemeMode(await _api.getThemeMode());
@@ -116,10 +126,50 @@ class SettingsProvider extends ChangeNotifier {
 
   // ---------- 通用设置 ----------
 
+  /// 设置当前所选通道（公网或内网）的后端 URL（兼容旧单一 URL 字段）
   Future<void> setBackendUrl(String url) async {
-    _backendUrl = url;
-    await _api.setBackendUrl(url);
+    final normalized = _normalize(url);
+    if (_usePublic) {
+      _publicUrl = normalized;
+      await _api.setBackendUrlPublic(_publicUrl);
+    } else {
+      _intranetUrl = normalized;
+      await _api.setBackendUrlIntranet(_intranetUrl);
+    }
     notifyListeners();
+  }
+
+  Future<void> setBackendUrlPublic(String url) async {
+    _publicUrl = _normalize(url);
+    await _api.setBackendUrlPublic(_publicUrl);
+    notifyListeners();
+  }
+
+  Future<void> setBackendUrlIntranet(String url) async {
+    final v = url.trim();
+    _intranetUrl = v.isEmpty ? '' : _normalize(v);
+    await _api.setBackendUrlIntranet(_intranetUrl);
+    notifyListeners();
+  }
+
+  /// 切换当前使用公网 / 内网后端
+  Future<void> setUsePublicBackend(bool usePublic) async {
+    _usePublic = usePublic;
+    await _api.setUsePublicBackend(usePublic);
+    notifyListeners();
+  }
+
+  String _normalize(String url) {
+    final t = url.trim();
+    if (t.isEmpty) return t;
+    var u = t;
+    if (!u.startsWith('http://') && !u.startsWith('https://')) {
+      u = 'https://$u';
+    }
+    while (u.endsWith('/')) {
+      u = u.substring(0, u.length - 1);
+    }
+    return u;
   }
 
   Future<void> setThinkTimeout(int seconds) async {

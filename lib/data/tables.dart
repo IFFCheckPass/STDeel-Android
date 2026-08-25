@@ -62,10 +62,12 @@ class AnswerLibrary extends Table {
 /// 知识点掌握度表
 ///
 /// 同步自后端 /api/v1/knowledge/mastery；离线时本地累计。
+/// 每个知识点归属一个学科（默认"未分类"），用于知识点管理分学科展示。
 @DataClassName('KnowledgeMasteryEntity')
 class KnowledgeMastery extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get knowledgePoint => text()();
+  TextColumn get subject => text().withDefault(const Constant('未分类'))();
   IntColumn get correctCount => integer().withDefault(const Constant(0))();
   IntColumn get wrongCount => integer().withDefault(const Constant(0))();
   DateTimeColumn get updatedAt =>

@@ -30,16 +30,74 @@ class BackendApi {
   final Dio _dio;
   SharedPreferences? _prefsCache;
 
-  /// 后端 URL（首次访问时从 SharedPreferences 加载）
+  /// 后端 URL：公网 / 内网双通道。
   ///
-  /// 兜底规范化：补全 https://、去尾斜杠、保留子路径（如 /stapi），
-  /// 兼容用户直接输入 `snserver.dpdns.org/stapi` 这类历史数据。
+  /// - 公网：存于 `backend_url`（兼容旧版本字段），默认 [AppConfig.defaultBackendUrl]
+  /// - 内网：存于 `backend_url_intranet`，默认为空；未配置时回退公网
+  /// - 内网支持 `http://192.168.x.x:端口/前缀` 这类带协议、内网 IP 与端口号的地址
+  ///   （[normalizeBaseUrl] 会保留已有的 http:// 与端口，仅当无协议时才补 https://）
+  ///
+  /// 实际使用哪套由 [AppConfig.keyBackendUsePublic] 决定（默认公网）。
   Future<String> _baseUrl() async {
     _prefsCache ??= await SharedPreferences.getInstance();
-    final raw =
-        _prefsCache!.getString(AppConfig.keyBackendUrl) ??
-            AppConfig.defaultBackendUrl;
-    return normalizeBaseUrl(raw);
+
+    // 是否启用公网
+    final usePublic =
+        _prefsCache!.getBool(AppConfig.keyBackendUsePublic) ?? true;
+
+    var active = _prefsCache!.getString(AppConfig.keyBackendUrl) ??
+        AppConfig.defaultBackendUrl;
+
+    if (!usePublic) {
+      // 内网未配置时回退公网，避免空串导致请求出错
+      final intra = _prefsCache!.getString(AppConfig.keyBackendUrlIntranet) ?? '';
+      if (intra.trim().isNotEmpty) active = intra;
+    }
+
+    return normalizeBaseUrl(active);
+  }
+
+  /// 读取公网后端 URL（含默认值兜底）
+  Future<String> getBackendUrlPublic() async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    return normalizeBaseUrl(
+      _prefsCache!.getString(AppConfig.keyBackendUrl) ??
+          AppConfig.defaultBackendUrl,
+    );
+  }
+
+  Future<void> setBackendUrlPublic(String url) async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    await _prefsCache!.setString(
+      AppConfig.keyBackendUrl,
+      normalizeBaseUrl(url),
+    );
+  }
+
+  /// 读取内网后端 URL（可能为空 / 未配置）
+  Future<String?> getBackendUrlIntranet() async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    final v = _prefsCache!.getString(AppConfig.keyBackendUrlIntranet);
+    if (v == null || v.trim().isEmpty) return null;
+    return normalizeBaseUrl(v);
+  }
+
+  Future<void> setBackendUrlIntranet(String url) async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    await _prefsCache!.setString(
+      AppConfig.keyBackendUrlIntranet,
+      normalizeBaseUrl(url),
+    );
+  }
+
+  Future<bool> getUsePublicBackend() async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    return _prefsCache!.getBool(AppConfig.keyBackendUsePublic) ?? true;
+  }
+
+  Future<void> setUsePublicBackend(bool usePublic) async {
+    _prefsCache ??= await SharedPreferences.getInstance();
+    await _prefsCache!.setBool(AppConfig.keyBackendUsePublic, usePublic);
   }
 
   Future<String> _userId() async {
@@ -167,6 +225,23 @@ class BackendApi {
       if (id == null || id.isEmpty) return false;
       _prefsCache ??= await SharedPreferences.getInstance();
       await _prefsCache!.setString(AppConfig.keyUserId, id);
+      return true;
+    } on DioException {
+      return false;
+    }
+  }
+
+  /// PUT /users/api-key — 把本机配置的 AI api-key 上传账号（跨端同步）
+  ///
+  /// 后端已适配该接口；失败返回 false（不阻塞用户操作），由 UI 提示可稍后重试。
+  Future<bool> syncUserApiKeys(Map<String, String> keys) async {
+    if (keys.isEmpty) return true;
+    final url = '${await _baseUrl()}/users/api-key';
+    try {
+      await _dio.put<dynamic>(
+        url,
+        data: {'user_id': await _userId(), 'api_keys': keys},
+      );
       return true;
     } on DioException {
       return false;
