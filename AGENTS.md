@@ -21,6 +21,13 @@
 - **每次构建 APK 后，必须自行上传产物到 GitHub** 并按下方版本规则发布。
 - 若推送因凭据未配置而失败，应自行执行 `gh auth setup-git` 后再推送。
 
+### 编译环境自愈（自执行，禁止打断用户）
+- 遇到编译问题或环境缺失（Flutter / Dart / Android SDK 等）时，**完全自主完成**环境配置、签名统一与打包签名工作：
+  - 自行安装 / 定位 Flutter SDK 与 Android SDK，补齐缺失的依赖与平台产物。
+  - 签名统一引用 `feature/signing-config` 分支留存的 `upload-keystore.jks` 与 `key.properties`（只用于本地构建，**不得**把密钥文件或该分支并入 `main`，遵守上方签名分支约束）。
+- **无需、也不得通知用户请求决策**；直接继续推进编译、签名、打包。
+- 打包好的 APK 按前述产物命名规则（`app-<版本号>.apk`）与版本发布规则（Release / Pre-Release 判定）**自主上传到 GitHub Releases**。
+
 ### 版本发布规则（GitHub Release / Pre-Release）
 - 版本号由 `pubspec.yaml` 的 `version` 决定，同步更新 `lib/screens/settings_screen.dart` 底部角标文案。
 - tag 格式沿用 `v<版本号>`（如 `v0.5.0`）。
