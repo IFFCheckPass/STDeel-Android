@@ -19,6 +19,7 @@ class AiCombo {
     required this.apiKey,
     required this.modelId,
     this.enabled = true,
+    this.multimodal = false,
   });
 
   /// 唯一标识
@@ -39,6 +40,9 @@ class AiCombo {
   /// 是否参与 Failover 链
   bool enabled;
 
+  /// 是否支持多模态（视觉 / 文档图片识别）
+  bool multimodal;
+
   bool get isComplete =>
       baseUrl.trim().isNotEmpty &&
       apiKey.trim().isNotEmpty &&
@@ -51,6 +55,7 @@ class AiCombo {
         'apiKey': apiKey,
         'modelId': modelId,
         'enabled': enabled,
+        'multimodal': multimodal,
       };
 
   factory AiCombo.fromJson(Map<String, dynamic> json) => AiCombo(
@@ -60,6 +65,7 @@ class AiCombo {
         apiKey: json['apiKey'] as String? ?? '',
         modelId: json['modelId'] as String? ?? '',
         enabled: json['enabled'] as bool? ?? true,
+        multimodal: json['multimodal'] as bool? ?? false,
       );
 
   AiCombo copyWith({
@@ -69,6 +75,7 @@ class AiCombo {
     String? apiKey,
     String? modelId,
     bool? enabled,
+    bool? multimodal,
   }) =>
       AiCombo(
         id: id ?? this.id,
@@ -77,6 +84,7 @@ class AiCombo {
         apiKey: apiKey ?? this.apiKey,
         modelId: modelId ?? this.modelId,
         enabled: enabled ?? this.enabled,
+        multimodal: multimodal ?? this.multimodal,
       );
 
   /// 转成 AI 调用配置
@@ -85,6 +93,7 @@ class AiCombo {
         model: modelId.trim(),
         endpoint: normalizeBaseUrl(baseUrl),
         apiKey: apiKey.trim(),
+        multimodal: multimodal,
       );
 }
 

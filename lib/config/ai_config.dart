@@ -11,6 +11,7 @@ class AiModelConfig {
     required this.model,
     required this.endpoint,
     required this.apiKey,
+    this.multimodal = false,
   });
 
   /// 模型人类可读名（用于通知/UI，一般为组合名）
@@ -24,6 +25,17 @@ class AiModelConfig {
 
   /// API Key
   final String apiKey;
+
+  /// 是否支持多模态（视觉/图片/文档识别）。用于题目分析与文档拆分时优先调度。
+  final bool multimodal;
+
+  AiModelConfig copyWith({bool? multimodal}) => AiModelConfig(
+        name: name,
+        model: model,
+        endpoint: endpoint,
+        apiKey: apiKey,
+        multimodal: multimodal ?? this.multimodal,
+      );
 }
 
 class AiConfig {
@@ -43,4 +55,21 @@ class AiConfig {
 
   /// 重答时使用的温度参数（覆盖当前答案）
   static const double retryTemperature = 0.9;
+
+  /// 答案库文档解析：把一份 PDF/Word 里的题目与答案，拆成结构化条目。
+  ///
+  /// 输入可能是整篇文档文本（docx/doc/文本型 PDF），也可能是文档页面图片
+  /// （扫描件 PDF，由多模态模型读图）。要求一律只返回 JSON。
+  static const String documentSplitPrompt = '''
+你是一个试卷/答案整理助手。请把下面给出的题库文档内容，逐题拆分并整理为标准答案条目。
+对每一道题输出：
+- content: 题干（完整、准确）
+- answer: 标准答案
+- solution: 简略的解答过程
+- knowledge_points: 知识点标签数组（1~5 个，如 ["三角函数","两角和差公式"]）
+- confidence: 一个 0~1 之间的置信度
+返回纯 JSON，格式如下（不要输出任何解释文字，不要用 markdown 代码块）：
+{"questions":[{"content":"...","answer":"...","solution":"...","knowledge_points":["..."],"confidence":0.95}]}
+如果文档中题目无法辨认或没有题目，请返回 {"questions":[]}。
+''';
 }

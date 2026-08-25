@@ -7,10 +7,13 @@ library;
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/database.dart';
+import '../providers/settings_provider.dart';
+import '../services/document_split_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/glass.dart';
 
@@ -127,10 +130,91 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
     return sha256.convert(utf8.encode(normalized)).toString();
   }
 
+  /// 从 PDF / Word 文档导入：AI 自动拆分 → 批量入库答案库。
+  Future<void> _importFile() async {
+    final models = context.read<SettingsProvider>().buildModelChain();
+    if (models.isEmpty) {
+      showGlassSnackBar(
+        context,
+        '请先到「设置 → AI 模型组合」填写 API Key 并启用组合',
+        error: true,
+      );
+      return;
+    }
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'doc', 'docx'],
+      );
+    } catch (_) {
+      if (!mounted) return;
+      showGlassSnackBar(context, '打开文件选择器失败', error: true);
+      return;
+    }
+    if (result == null || result.files.isEmpty) return;
+    final filePath = result.files.single.path;
+    if (filePath == null || filePath.isEmpty || !mounted) return;
+
+    // 展示解析中弹窗（不可关闭），完成后关闭
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _LoadingDialog(),
+    );
+
+    final svc = context.read<DocumentSplitService>();
+    DocumentSplitResult split;
+    try {
+      split = await svc.split(path: filePath, models: models);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      showGlassSnackBar(context, '文档识别失败：$e', error: true);
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    final sync = context.read<SyncService>();
+    var saved = 0;
+    for (final q in split.questions) {
+      final content = q.content.trim();
+      if (content.isEmpty) continue;
+      await sync.uploadAnswer(
+        questionText: content,
+        questionHash: _hashOf(content),
+        answer: q.answer,
+        solution: q.solution,
+        knowledgePoints: q.knowledgePoints,
+      );
+      saved++;
+    }
+    await _refresh();
+    if (!mounted) return;
+    showGlassSnackBar(
+      context,
+      saved == 0
+          ? '未从文档中识别到有效题目'
+          : '已将 ${split.usedModel} 识别出的 $saved 道题导入答案库',
+      success: saved > 0,
+      error: saved == 0,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('标准答案库')),
+      appBar: AppBar(
+        title: const Text('标准答案库'),
+        actions: [
+          IconButton(
+            tooltip: '从 PDF / Word 导入',
+            icon: const Icon(Icons.upload_file),
+            onPressed: _importFile,
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('录入'),
@@ -182,6 +266,33 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 文档解析中的加载弹窗
+class _LoadingDialog extends StatelessWidget {
+  const _LoadingDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: GlassCard(
+        padding: const EdgeInsets.all(24),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在识别并拆分文档…',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            SizedBox(height: 4),
+            Text('PDF / Word 将由 AI 自动拆分后导入答案库',
+                style: TextStyle(fontSize: 12, color: G.textSecondary)),
+          ],
+        ),
       ),
     );
   }

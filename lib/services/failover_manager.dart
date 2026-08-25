@@ -162,6 +162,15 @@ class FailoverManager {
           return;
         }
         if (event is AiDone) {
+          // AI 返回了内容但未解析出任何有效题目结构（如 JSON 截断 / 键名不符）
+          // 时，将其视为该模型失败并自动切换下一模型，避免出现"空结果被当作成功"。
+          if (event.result.questions.isEmpty) {
+            failureReason = '模型未返回有效题目结构（解析结果为空）';
+            if (!subCompleter.isCompleted) {
+              subCompleter.complete((false, failureReason));
+            }
+            return;
+          }
           if (!controller.isClosed) controller.add(event);
           if (!subCompleter.isCompleted) subCompleter.complete((true, null));
           return;

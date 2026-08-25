@@ -39,6 +39,7 @@ class _ComboEditScreenState extends State<ComboEditScreen> {
   bool _obscureKey = true;
   bool _fetchingModels = false;
   bool _testing = false;
+  bool _multimodal = false;
 
   /// 测试结果：(ok, latencyMs, message)
   ({bool ok, int latencyMs, String message})? _testResult;
@@ -50,6 +51,7 @@ class _ComboEditScreenState extends State<ComboEditScreen> {
     _urlCtrl = TextEditingController(text: widget.initial.baseUrl);
     _keyCtrl = TextEditingController(text: widget.initial.apiKey);
     _modelCtrl = TextEditingController(text: widget.initial.modelId);
+    _multimodal = widget.initial.multimodal;
   }
 
   @override
@@ -70,6 +72,7 @@ class _ComboEditScreenState extends State<ComboEditScreen> {
         apiKey: _keyCtrl.text.trim(),
         modelId: _modelCtrl.text.trim(),
         enabled: widget.initial.enabled,
+        multimodal: _multimodal,
       );
 
   @override
@@ -165,6 +168,27 @@ class _ComboEditScreenState extends State<ComboEditScreen> {
                           )
                         : const Icon(Icons.cloud_download_outlined, size: 18),
                     label: Text(_fetchingModels ? '正在获取模型列表…' : '获取模型列表'),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _multimodal,
+                    onChanged: (v) => setState(() => _multimodal = v),
+                    title: const Row(
+                      children: [
+                        Icon(Icons.visibility_outlined,
+                            color: G.accent, size: 18),
+                        SizedBox(width: 10),
+                        Text('支持多模态（视觉 / 文档识别）',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14)),
+                      ],
+                    ),
+                    subtitle: const Text(
+                      '勾选后，题目分析与答案库文档识别会优先使用该模型。仅支持图片/文字输入的模型请保持关闭。',
+                      style: TextStyle(fontSize: 12, height: 1.5),
+                    ),
                   ),
                 ],
               ),

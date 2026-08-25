@@ -23,6 +23,13 @@ dependencies:
   # 拍照/选图
   image_picker: ^1.0.7
 
+  # 文件选择（答案库导入 PDF/Word 等）
+  file_picker: ^8.0.0
+
+  # 文档解析：PDF 渲染为图片（扫描件/版面识别走多模态），docx 解压提取文本
+  pdfx: ^2.6.0
+  archive: ^3.6.0
+
   # 图片裁切/旋转（纯 Dart 实现）
   image: ^4.2.0
 

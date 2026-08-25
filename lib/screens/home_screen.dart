@@ -174,12 +174,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 28),
                     if (state.status == SolveStatus.thinking ||
                         state.status == SolveStatus.answering) ...[
-                      ThinkingIndicator(
-                        isAnswering: state.status == SolveStatus.answering,
-                        modelName: state.currentModel.isEmpty
-                            ? null
-                            : state.currentModel,
-                        notice: state.notice,
+                      InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () =>
+                            Navigator.of(context).pushNamed('/answer'),
+                        child: Tooltip(
+                          message: '点击查看解题进程',
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.stretch,
+                            children: [
+                              ThinkingIndicator(
+                                isAnswering:
+                                    state.status == SolveStatus.answering,
+                                modelName: state.currentModel.isEmpty
+                                    ? null
+                                    : state.currentModel,
+                                notice: state.notice,
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.touch_app_outlined,
+                                      size: 12, color: G.accent),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '点击查看解题进程',
+                                    style: TextStyle(
+                                        fontSize: 11, color: G.accent),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ] else if (state.status == SolveStatus.done &&
                         state.result != null)

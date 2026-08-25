@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import '../data/database.dart';
 import '../providers/settings_provider.dart';
 import '../providers/solve_provider.dart';
+import '../services/backend_api.dart';
 import '../services/sync_service.dart';
 import '../widgets/glass.dart';
 
@@ -220,6 +221,19 @@ class _HistoryCardState extends State<_HistoryCard> {
                               ),
                             ),
                             const Spacer(),
+                            GestureDetector(
+                              onTap: _delete,
+                              behavior: HitTestBehavior.opaque,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 2),
+                                child: Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                  color: G.coral,
+                                ),
+                              ),
+                            ),
                             Icon(
                               _expanded
                                   ? Icons.expand_less
@@ -359,6 +373,9 @@ class _HistoryCardState extends State<_HistoryCard> {
   }
 
   /// 重答 / 疑问：复用 Solver 的纯文本题解，就地覆盖历史记录并跳转到解题页查看
+  ///
+  /// 关键：**先**导航到解题页 /answer，**再**触发重答/疑问（不等待其完成），
+  /// 让用户在解题页实时看到 AI 思考与作答进程，而不是等完成后才跳转。
   Future<void> _retryOrDetail({required String actionType}) async {
     final r = widget.record;
     final solve = context.read<SolveProvider>();
@@ -372,26 +389,31 @@ class _HistoryCardState extends State<_HistoryCard> {
       );
       return;
     }
+    final questionText = r.questionText.isEmpty ? '（请补充题干）' : r.questionText;
     showGlassSnackBar(
       context,
       actionType == 'retry' ? '正在重答…' : '正在生成分步解答…',
     );
-    final f = actionType == 'retry'
-        ? solve.retry(
-            questionId: r.id,
-            questionText: r.questionText.isEmpty ? '（请补充题干）' : r.questionText,
-            models: models,
-            thinkTimeout: settings.thinkTimeout,
-          )
-        : solve.askDetailed(
-            questionId: r.id,
-            questionText: r.questionText.isEmpty ? '（请补充题干）' : r.questionText,
-            models: models,
-            thinkTimeout: settings.thinkTimeout,
-          );
-    await f;
+    // 立即进入解题页（导航先发），answer 页 watch SolveProvider 展示流式思维链
+    final nav = Navigator.of(context).pushNamed('/answer');
+    // 触发重答/疑问（fire，不阻塞导航，让流式事件驱动 answer 页 UI）
+    if (actionType == 'retry') {
+      solve.retry(
+        questionId: r.id,
+        questionText: questionText,
+        models: models,
+        thinkTimeout: settings.thinkTimeout,
+      );
+    } else {
+      solve.askDetailed(
+        questionId: r.id,
+        questionText: questionText,
+        models: models,
+        thinkTimeout: settings.thinkTimeout,
+      );
+    }
+    await nav;
     if (!mounted) return;
-    await Navigator.of(context).pushNamed('/answer');
     widget.onChanged();
   }
 
@@ -433,6 +455,55 @@ class _HistoryCardState extends State<_HistoryCard> {
         '${dt.day.toString().padLeft(2, '0')} '
         '${dt.hour.toString().padLeft(2, '0')}:'
         '${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// 删除该条记录：确认后先同步删除服务器记录，再删本地 drift。
+  Future<void> _delete() async {
+    final r = widget.record;
+    final preview = r.questionText.isEmpty
+        ? '（空题干）'
+        : (r.questionText.length > 30
+            ? '${r.questionText.substring(0, 30)}…'
+            : r.questionText);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除该记录'),
+        content: Text(
+          '确定删除这条解题记录吗？本地与服务器将同步删除，不可恢复。\n\n题干：$preview',
+          style: const TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: G.coral,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final db = context.read<AppDatabase>();
+    final api = context.read<BackendApi>();
+    // 先删服务器（若已有后端主键），再删本地，避免"服务器残留 + 本地消失"。
+    final remoteOk = await api.deleteSolveRecord(r.remoteId ?? 0);
+    await db.solveRecordDao.deleteById(r.id);
+    if (!mounted) return;
+    showGlassSnackBar(
+      context,
+      remoteOk ? '已删除该记录' : '已删除本地记录（服务器同步未成功，可稍后重试）',
+      success: remoteOk,
+      error: !remoteOk,
+    );
+    widget.onChanged();
   }
 
   /// 就地更新反馈（写 drift + 累计知识点 + 异步同步后端）

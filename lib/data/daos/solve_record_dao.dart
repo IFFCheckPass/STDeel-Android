@@ -16,6 +16,10 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
   Future<int> insert(SolveRecordsCompanion entry) =>
       into(solveRecords).insert(entry);
 
+  /// 删除单条记录（本地删除；删除前的 remoteId 由调用方读取用于同步后端）
+  Future<int> deleteById(int id) =>
+      (delete(solveRecords)..where((t) => t.id.equals(id))).go();
+
   Future<List<SolveRecordEntity>> getAll() =>
       (select(solveRecords)
             ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))

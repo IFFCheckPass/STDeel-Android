@@ -640,6 +640,23 @@ class _ComboTile extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (combo.multimodal) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: G.mint.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border:
+                                    Border.all(color: G.mint.withOpacity(0.4)),
+                              ),
+                              child: const Text(
+                                '多模态',
+                                style: TextStyle(fontSize: 9, color: G.mint),
+                              ),
+                            ),
+                          ],
                           if (!combo.isComplete) ...[
                             const SizedBox(width: 6),
                             Container(

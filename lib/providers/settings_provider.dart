@@ -120,9 +120,21 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 生成 Failover 调用链（按列表顺序）
-  List<AiModelConfig> buildModelChain() =>
-      availableCombos.map((c) => c.toModelConfig()).toList();
+  /// 生成 Failover 调用链。
+  ///
+  /// 排序：支持多模态（视觉/文档识别）的组合稳定排在前面，其余排后，
+  /// 使题目 / 文档分析优先使用多模态模型；同组内保持用户在设置页的排列顺序。
+  List<AiModelConfig> buildModelChain() {
+    final chain = availableCombos.map((c) => c.toModelConfig()).toList();
+    if (chain.length > 1) {
+      // 稳定分区：multimodal 在前、非 multimodal 在后
+      chain.sort((a, b) {
+        if (a.multimodal == b.multimodal) return 0;
+        return a.multimodal ? -1 : 1;
+      });
+    }
+    return chain;
+  }
 
   // ---------- 通用设置 ----------
 

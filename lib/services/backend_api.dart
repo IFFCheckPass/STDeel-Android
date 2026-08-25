@@ -272,6 +272,24 @@ class BackendApi {
     }
   }
 
+  /// DELETE /solve-records/{id} — 本地与服务器同时删除解题记录
+  ///
+  /// 以后端主键 [remoteId] 删除对应记录；后端未适配或网络失败时返回 false，
+  /// 由调用方决定是否仍删除本地（或提示稍后重试）。
+  Future<bool> deleteSolveRecord(int remoteId) async {
+    if (remoteId <= 0) return true;
+    final url = '${await _baseUrl()}/solve-records/$remoteId';
+    try {
+      await _dio.delete<dynamic>(
+        url,
+        data: {'user_id': await _userId()},
+      );
+      return true;
+    } on DioException {
+      return false;
+    }
+  }
+
   /// GET /knowledge/mastery
   Future<List<Map<String, dynamic>>> fetchKnowledgeMastery() async {
     final url = '${await _baseUrl()}/knowledge/mastery';

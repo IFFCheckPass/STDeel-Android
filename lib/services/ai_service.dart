@@ -367,9 +367,11 @@ class AiService {
     return null;
   }
 
-  /// 解析 AI 返回的完整 JSON 字符串 → [QuestionResult]
+  /// 解析 AI 返回的内容 → [QuestionResult]
   ///
-  /// 容忍 model 返回 markdown ```json 围栏
+  /// 优先解析 `{questions: [...]}` 结构；同时兼容模型直接返回单题对象
+  /// 或纯数组的情况，尽量降低"解析失败→空结果→误切换"的概率。
+  /// 容忍 markdown ```json 围栏。
   List<QuestionResult> _parseAnswer(String raw) {
     var text = raw.trim();
     if (text.startsWith('```')) {
@@ -380,14 +382,38 @@ class AiService {
     }
     final start = text.indexOf('{');
     final end = text.lastIndexOf('}');
+
+    // 顶层可能直接是数组 [ {...}, {...} ]
+    if ((start < 0 || end < 0) && text.startsWith('[')) {
+      final a = text.indexOf('[');
+      final z = text.lastIndexOf(']');
+      if (a >= 0 && z > a) {
+        final slice = text.substring(a, z + 1);
+        try {
+          final list = jsonDecode(slice) as List<dynamic>;
+          return list
+              .map((e) => QuestionResult.fromJson(e as Map<String, dynamic>))
+              .toList();
+        } catch (_) {
+          return [];
+        }
+      }
+    }
     if (start < 0 || end < 0 || end <= start) return [];
     final slice = text.substring(start, end + 1);
     try {
       final decoded = jsonDecode(slice) as Map<String, dynamic>;
-      final list = decoded['questions'] as List<dynamic>? ?? [];
-      return list
-          .map((e) => QuestionResult.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final list = decoded['questions'] as List<dynamic>?;
+      if (list != null) {
+        return list
+            .map((e) => QuestionResult.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      // 直接返回单题对象 { content, answer, ... }
+      if (decoded['content'] != null || decoded['answer'] != null) {
+        return [QuestionResult.fromJson(Map<String, dynamic>.from(decoded))];
+      }
+      return [];
     } catch (_) {
       return [];
     }
@@ -395,6 +421,72 @@ class AiService {
 
   int _estimateTokens(String reasoning, String content) =>
       ((reasoning.length + content.length) / 4).ceil();
+
+  /// 一次性（非流式）生成：把一段文本/若干图片发给单个模型，返回完整文本。
+  ///
+  /// 用于答案库文档拆分等场景：优先由多模态模型读图/文并输出结构化 JSON。
+  /// 失败时抛字符串异常（可读原因）。
+  Future<String> generateRaw({
+    required AiModelConfig model,
+    required String userText,
+    List<String> imageDataUrls = const [],
+    double temperature = 0.2,
+    int timeoutSeconds = 180,
+  }) async {
+    final url = '${model.endpoint}/chat/completions';
+    final messages = <Map<String, dynamic>>[
+      {'role': 'system', 'content': AiConfig.documentSplitPrompt},
+    ];
+    if (imageDataUrls.isEmpty) {
+      messages.add({'role': 'user', 'content': userText});
+    } else {
+      messages.add({
+        'role': 'user',
+        'content': [
+          {'type': 'text', 'text': userText},
+          for (final du in imageDataUrls)
+            {
+              'type': 'image_url',
+              'image_url': {'url': du},
+            },
+        ],
+      });
+    }
+    final body = <String, dynamic>{
+      'model': model.model,
+      'messages': messages,
+      'stream': false,
+      'temperature': temperature,
+    };
+    try {
+      final resp = await _dio.post<dynamic>(
+        url,
+        data: body,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer ${model.apiKey}',
+            'Content-Type': 'application/json',
+          },
+          receiveTimeout: Duration(seconds: timeoutSeconds),
+        ),
+      );
+      final data = resp.data;
+      String? content;
+      if (data is Map) {
+        final choices = data['choices'] as List<dynamic>?;
+        if (choices != null && choices.isNotEmpty) {
+          final m = (choices[0] as Map)['message'] as Map?;
+          final c = m?['content'];
+          if (c is String) content = c;
+        }
+      }
+      final text = content?.trim() ?? '';
+      if (text.isEmpty) throw '模型未返回内容';
+      return text;
+    } on DioException catch (e) {
+      throw await _dioErrorText(e);
+    }
+  }
 
   /// 获取模型列表：GET {baseUrl}/models
   ///
