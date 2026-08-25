@@ -27,6 +27,7 @@
   - 签名统一引用 `feature/signing-config` 分支留存的 `upload-keystore.jks` 与 `key.properties`（只用于本地构建，**不得**把密钥文件或该分支并入 `main`，遵守上方签名分支约束）。
 - **无需、也不得通知用户请求决策**；直接继续推进编译、签名、打包。
 - 打包好的 APK 按前述产物命名规则（`app-<版本号>.apk`）与版本发布规则（Release / Pre-Release 判定）**自主上传到 GitHub Releases**。
+- **每次成功编译后，将一整套环境准备与编译过程（工具链安装/依赖/签名/构建/上传命令）写入 `docs/BUILD.md`**，以备下次使用；该文档随仓库提交同步到 `main`。
 
 ### 版本发布规则（GitHub Release / Pre-Release）
 - 版本号由 `pubspec.yaml` 的 `version` 决定，同步更新 `lib/screens/settings_screen.dart` 底部角标文案。
