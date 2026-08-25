@@ -80,3 +80,10 @@ rm -f android/upload-keystore.jks android/key.properties
 - **签名**：从 `feature/signing-config` 分支仅取 `upload-keystore.jks` + `key.properties` 到工作区（不并入 main），临时在 `app/build.gradle.kts` 启用 release 签名；构建后恢复、删除密钥文件。校验 SHA-256 `ed7379e8...`。
 - **发布**：`gh release create v0.5.1 --prerelease`（0.5.1 < 1.0.0 → Pre-Release），产物 `app-0.5.1.apk`。
   - 链接：https://github.com/IFFCheckPass/STDeel-Android/releases/tag/v0.5.1
+
+### v0.5.1 re-build（✅ 增量重打包——单纯补打 de8e087 两处编译修复）
+- 场景：`v0.5.1` 首次发布后，`main` 又新增 `de8e087`（修复知识点分学科两处编译错误 + 补文档）。本次**在不改版本号**的前提下基于当前 `main` 重新打包，`gh release upload v0.5.1 --clobber` 覆盖发布产物。
+- 签名切换：在 `android/app/build.gradle.kts` 增加 `signingConfigs.release`（读 `android/key.properties`），`buildTypes.release.signingConfig` 改为按 `project.hasProperty("signingEnabled")` 选择；构建命令加 `-PsigningEnabled` 启用。**必须**在文件顶部 `import java.util.Properties`，否则 Kotlin 脚本 `Unresolved reference 'Properties'`。
+- 构建：`flutter build apk --release -PsigningEnabled`，Gradle 阶段 **47.8s**（增量热缓存，非首次 756s）。产物 67.7MB。
+- 校验：`apksigner verify --print-certs` → SHA-256 `ed7379e8...`（与首发一致）。`gh release upload v0.5.1 app-0.5.1.apk --clobber`。
+- 收尾：`git checkout -- android/app/build.gradle.kts` 还原，删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.5.1.apk`，保持 `main` 干净。
