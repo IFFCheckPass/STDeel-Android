@@ -207,6 +207,7 @@ class SolveProvider extends ChangeNotifier {
           answer: Value(q.answer),
           solution: Value(q.solution),
           knowledgePoints: Value(jsonEncode(q.knowledgePoints)),
+          subject: Value(q.subject),
           aiModel: Value(result.aiModel),
           latencyMs: Value(result.latencyMs),
           tokensUsed: Value(result.tokensUsed),
@@ -239,6 +240,7 @@ class SolveProvider extends ChangeNotifier {
         knowledgePoints: _decodeKp(local.knowledgePoints),
         answer: local.answer,
         solution: local.solution,
+        subject: local.subject,
       );
     }
     // 2. 后端匹配
@@ -256,6 +258,9 @@ class SolveProvider extends ChangeNotifier {
           knowledgePoints: _decodeKp((data['knowledge_points'] ?? '[]').toString()),
           answer: (data['answer'] ?? '').toString(),
           solution: (data['solution'] ?? '').toString(),
+          subject: data['subject']?.toString().trim().isNotEmpty == true
+              ? data['subject'].toString().trim()
+              : '未分类',
         );
       }
     } catch (_) {
@@ -276,10 +281,15 @@ class SolveProvider extends ChangeNotifier {
   Future<void> markCorrect({
     required int questionId,
     required List<String> knowledgePoints,
+    String subject = '未分类',
   }) async {
     await _db.solveRecordDao.updateFeedback(questionId, 'correct');
     for (final kp in knowledgePoints) {
-      await _db.knowledgeDao.upsert(knowledgePoint: kp, deltaCorrect: 1);
+      await _db.knowledgeDao.upsert(
+        knowledgePoint: kp,
+        subject: subject,
+        deltaCorrect: 1,
+      );
     }
     await _sync.uploadFeedback(questionId, 'correct');
     notifyListeners();
@@ -289,10 +299,15 @@ class SolveProvider extends ChangeNotifier {
   Future<void> markWrong({
     required int questionId,
     required List<String> knowledgePoints,
+    String subject = '未分类',
   }) async {
     await _db.solveRecordDao.updateFeedback(questionId, 'wrong');
     for (final kp in knowledgePoints) {
-      await _db.knowledgeDao.upsert(knowledgePoint: kp, deltaWrong: 1);
+      await _db.knowledgeDao.upsert(
+        knowledgePoint: kp,
+        subject: subject,
+        deltaWrong: 1,
+      );
     }
     await _sync.uploadFeedback(questionId, 'wrong');
     notifyListeners();
@@ -377,6 +392,7 @@ class SolveProvider extends ChangeNotifier {
         tokensUsed: result.tokensUsed,
         knowledgePoints: jsonEncode(q.knowledgePoints),
         actionType: actionType,
+        subject: q.subject,
       );
       q.id = dbId;
     } else {
@@ -386,6 +402,7 @@ class SolveProvider extends ChangeNotifier {
           answer: Value(q.answer),
           solution: Value(q.solution),
           knowledgePoints: Value(jsonEncode(q.knowledgePoints)),
+          subject: Value(q.subject),
           aiModel: Value(result.aiModel),
           latencyMs: Value(result.latencyMs),
           tokensUsed: Value(result.tokensUsed),

@@ -20,6 +20,8 @@ class SolveRecords extends Table {
   TextColumn get solution => text().withDefault(const Constant(''))();
   TextColumn get knowledgePoints =>
       text().withDefault(const Constant('[]'))(); // JSON 数组字符串
+  TextColumn get subject =>
+      text().withDefault(const Constant('未分类'))(); // 所属学科（AI 自动归类）
   TextColumn get aiModel => text().withDefault(const Constant(''))();
   IntColumn get latencyMs => integer().withDefault(const Constant(0))();
   IntColumn get tokensUsed => integer().withDefault(const Constant(0))();
@@ -54,6 +56,8 @@ class AnswerLibrary extends Table {
   TextColumn get solution => text().withDefault(const Constant(''))();
   TextColumn get knowledgePoints =>
       text().withDefault(const Constant('[]'))();
+  TextColumn get subject =>
+      text().withDefault(const Constant('未分类'))(); // 题目所属学科
   TextColumn get source => text().withDefault(const Constant('local'))();
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();

@@ -330,6 +330,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
     await solve.markCorrect(
       questionId: q.id,
       knowledgePoints: q.knowledgePoints,
+      subject: q.subject,
     );
     if (!context.mounted) return;
     showGlassSnackBar(context, '已标记正确，知识点统计已更新', success: true);
@@ -340,6 +341,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
     await solve.markWrong(
       questionId: q.id,
       knowledgePoints: q.knowledgePoints,
+      subject: q.subject,
     );
     if (!context.mounted) return;
     showGlassSnackBar(context, '已标记错误，薄弱知识点已记录', success: true);

@@ -51,6 +51,7 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
     required int tokensUsed,
     String? knowledgePoints,
     String actionType = 'retry',
+    String? subject,
   }) =>
       (update(solveRecords)..where((t) => t.id.equals(id))).write(
         SolveRecordsCompanion(
@@ -61,6 +62,7 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
           tokensUsed: Value(tokensUsed),
           knowledgePoints:
               knowledgePoints == null ? const Value.absent() : Value(knowledgePoints),
+          subject: subject == null ? const Value.absent() : Value(subject),
           matched: const Value(false),
           userFeedback: const Value('none'),
           actionType: Value(actionType),
@@ -92,6 +94,7 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
     int latencyMs = 0,
     int tokensUsed = 0,
     bool matched = false,
+    String subject = '未分类',
     DateTime? createdAt,
   }) async {
     final rec = await (select(solveRecords)
@@ -102,6 +105,7 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
       answer: Value(answer),
       solution: Value(solution),
       knowledgePoints: Value(knowledgePoints),
+      subject: Value(subject),
       aiModel: Value(aiModel),
       latencyMs: Value(latencyMs),
       tokensUsed: Value(tokensUsed),
@@ -123,6 +127,7 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
         answer: Value(answer),
         solution: Value(solution),
         knowledgePoints: Value(knowledgePoints),
+        subject: Value(subject),
         aiModel: Value(aiModel),
         latencyMs: Value(latencyMs),
         tokensUsed: Value(tokensUsed),

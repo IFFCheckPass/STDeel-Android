@@ -147,7 +147,7 @@ class DocumentSplitService {
   /// PDF 逐页渲染为 PNG data URL（走多模态识别）
   Future<List<String>> _renderPdf(String path) async {
     // pdfx 是原生实现，networking/内存异常需隔离，逐页关闭释放资源。
-    PdfDocument? doc;
+    late final PdfDocument doc;
     try {
       doc = await PdfDocument.openFile(path);
     } catch (e) {
@@ -160,10 +160,18 @@ class DocumentSplitService {
       for (var i = 0; i < n; i++) {
         PdfPage? page;
         try {
-          page = await doc!.getPage(i);
-          final image = await page.render(format: PdfPageImageFormat.png);
+          page = await doc.getPage(i + 1);
+          // 按目标宽度保持纵横比渲染，用 JPEG 压缩控制体积（发给多模态识别）
+          final targetW = 1000.0;
+          final targetH = page.height * targetW / page.width;
+          final image = await page.render(
+            width: targetW,
+            height: targetH,
+            format: PdfPageImageFormat.jpeg,
+            quality: 80,
+          );
           if (image != null) {
-            images.add('data:image/png;base64,'
+            images.add('data:image/jpeg;base64,'
                 '${base64Encode(image.bytes)}');
           }
         } catch (_) {
@@ -173,7 +181,7 @@ class DocumentSplitService {
         }
       }
     } finally {
-      await doc.dispose();
+      await doc.close();
     }
     return images;
   }
@@ -211,7 +219,7 @@ class DocumentSplitService {
         if (cur.length >= 3) {
           sb.write('${cur.toString().trim()}\n');
         }
-        cur = StringBuffer();
+        cur.clear();
       }
     }
     if (cur.length >= 3) sb.write(cur.toString().trim());

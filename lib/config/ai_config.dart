@@ -42,9 +42,13 @@ class AiConfig {
   AiConfig._();
 
   /// 系统提示词：要求 AI 返回结构化 JSON
+  ///
+  /// 每道题带 `subject`（科目），用于知识点按学科自动归类，避免人工逐题分类。
   static const String systemPrompt = '''
-你是一个数学解题助手。请分析图片中的题目，返回 JSON 格式：
-{"questions": [{"id": 1, "content": "题目内容", "knowledge_points": ["知识点1","知识点2"], "answer": "答案", "solution": "简略解答过程", "confidence": 0.95}]}
+你是一个数学及多学科解题助手。请分析图片中的题目，返回 JSON 格式：
+{"questions": [{"id": 1, "content": "题目内容", "subject": "所属科目", "knowledge_points": ["知识点1","知识点2"], "answer": "答案", "solution": "简略解答过程", "confidence": 0.95}]}
+- subject 是该题所属科目，取值如：数学、语文、英语、物理、化学、生物、政治、历史、地理、其他。不确定时给最可能的科目。
+- knowledge_points 中的每个知识点即该题subject对应学科下的知识点。
 如果图片中有多道题，请在 questions 数组中分别返回。
 仅返回 JSON，不要附加任何解释性文字。
 ''';
@@ -64,12 +68,13 @@ class AiConfig {
 你是一个试卷/答案整理助手。请把下面给出的题库文档内容，逐题拆分并整理为标准答案条目。
 对每一道题输出：
 - content: 题干（完整、准确）
+- subject: 该题所属科目（如 数学、语文、英语、物理、化学、生物、政治、历史、地理、其他）
 - answer: 标准答案
 - solution: 简略的解答过程
-- knowledge_points: 知识点标签数组（1~5 个，如 ["三角函数","两角和差公式"]）
+- knowledge_points: 知识点标签数组（1~5 个，如 ["三角函数","两角和差公式"]），都归属于 subject 对应学科
 - confidence: 一个 0~1 之间的置信度
 返回纯 JSON，格式如下（不要输出任何解释文字，不要用 markdown 代码块）：
-{"questions":[{"content":"...","answer":"...","solution":"...","knowledge_points":["..."],"confidence":0.95}]}
+{"questions":[{"content":"...","subject":"科目","answer":"...","solution":"...","knowledge_points":["..."],"confidence":0.95}]}
 如果文档中题目无法辨认或没有题目，请返回 {"questions":[]}。
 ''';
 }

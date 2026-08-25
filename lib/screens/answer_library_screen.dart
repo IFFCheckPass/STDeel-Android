@@ -187,6 +187,7 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
         answer: q.answer,
         solution: q.solution,
         knowledgePoints: q.knowledgePoints,
+        subject: q.subject,
       );
       saved++;
     }
@@ -281,16 +282,18 @@ class _LoadingDialog extends StatelessWidget {
       backgroundColor: Colors.transparent,
       child: GlassCard(
         padding: const EdgeInsets.all(24),
-        child: const Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('正在识别并拆分文档…',
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            const Text('正在识别并拆分文档…',
                 style: TextStyle(fontWeight: FontWeight.w600)),
-            SizedBox(height: 4),
-            Text('PDF / Word 将由 AI 自动拆分后导入答案库',
-                style: TextStyle(fontSize: 12, color: G.textSecondary)),
+            const SizedBox(height: 4),
+            Text(
+              'PDF / Word 将由 AI 自动拆分后导入答案库',
+              style: TextStyle(fontSize: 12, color: G.textSecondary),
+            ),
           ],
         ),
       ),

@@ -97,6 +97,7 @@ class SyncService {
     required String answer,
     String solution = '',
     List<String> knowledgePoints = const [],
+    String subject = '未分类',
   }) async {
     try {
       await _api.uploadAnswer({
@@ -105,6 +106,7 @@ class SyncService {
         'answer': answer,
         'solution': solution,
         'knowledge_points': knowledgePoints,
+        'subject': subject,
       });
     } catch (_) {
       // 静默
@@ -116,6 +118,7 @@ class SyncService {
         answer: answer,
         solution: Value(solution),
         knowledgePoints: Value(jsonEncode(knowledgePoints)),
+        subject: Value(subject),
         source: const Value('local'),
       ),
     );
@@ -176,6 +179,7 @@ class SyncService {
           'matched': r.matched,
           'user_feedback': r.userFeedback,
           'image_path': r.imagePath,
+          'subject': r.subject,
         });
       } catch (_) {
         // 网络/后端失败：保留记录待下次重试。
@@ -222,6 +226,9 @@ class SyncService {
           latencyMs: (row['latency_ms'] as num?)?.toInt() ?? 0,
           tokensUsed: (row['tokens_used'] as num?)?.toInt() ?? 0,
           matched: row['matched'] == true,
+          subject: row['subject']?.toString().trim().isNotEmpty == true
+              ? row['subject'].toString().trim()
+              : '未分类',
           createdAt:
               row['created_at'] is String
                   ? DateTime.tryParse(row['created_at'])

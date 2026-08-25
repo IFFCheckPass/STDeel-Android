@@ -12,6 +12,7 @@ class QuestionResult {
     this.answer = '',
     this.solution = '',
     this.confidence = 0.0,
+    this.subject = '未分类',
   }) : knowledgePoints = knowledgePoints ?? const [];
 
   factory QuestionResult.fromJson(Map<String, dynamic> json) =>
@@ -28,6 +29,9 @@ class QuestionResult {
         confidence: json['confidence'] is num
             ? (json['confidence'] as num).toDouble()
             : 0.0,
+        subject: json['subject']?.toString().trim().isNotEmpty == true
+            ? json['subject'].toString().trim()
+            : '未分类',
       );
 
   final String content;
@@ -35,6 +39,9 @@ class QuestionResult {
   String answer;
   String solution;
   double confidence;
+
+  /// 所属学科（AI 自动归类，默认"未分类"）
+  String subject;
 
   /// 记录 ID：AI 返回阶段通常为 0；解题被持久化后写回漂移(drift)主键，
   /// 供重答/疑问/反馈命中同一历史记录。
@@ -47,6 +54,7 @@ class QuestionResult {
         'answer': answer,
         'solution': solution,
         'confidence': confidence,
+        'subject': subject,
       };
 }
 

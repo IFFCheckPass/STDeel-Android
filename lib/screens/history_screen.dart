@@ -517,6 +517,7 @@ class _HistoryCardState extends State<_HistoryCard> {
     for (final kp in kps) {
       await db.knowledgeDao.upsert(
         knowledgePoint: kp,
+        subject: r.subject,
         deltaCorrect: isCorrect ? 1 : 0,
         deltaWrong: isCorrect ? 0 : 1,
       );

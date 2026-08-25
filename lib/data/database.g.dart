@@ -47,6 +47,14 @@ class $SolveRecordsTable extends SolveRecords
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('[]'));
+  static const VerificationMeta _subjectMeta =
+      const VerificationMeta('subject');
+  @override
+  late final GeneratedColumn<String> subject = GeneratedColumn<String>(
+      'subject', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('未分类'));
   static const VerificationMeta _aiModelMeta =
       const VerificationMeta('aiModel');
   @override
@@ -135,6 +143,7 @@ class $SolveRecordsTable extends SolveRecords
         answer,
         solution,
         knowledgePoints,
+        subject,
         aiModel,
         latencyMs,
         tokensUsed,
@@ -180,6 +189,10 @@ class $SolveRecordsTable extends SolveRecords
           _knowledgePointsMeta,
           knowledgePoints.isAcceptableOrUnknown(
               data['knowledge_points']!, _knowledgePointsMeta));
+    }
+    if (data.containsKey('subject')) {
+      context.handle(_subjectMeta,
+          subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta));
     }
     if (data.containsKey('ai_model')) {
       context.handle(_aiModelMeta,
@@ -246,6 +259,8 @@ class $SolveRecordsTable extends SolveRecords
           .read(DriftSqlType.string, data['${effectivePrefix}solution'])!,
       knowledgePoints: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}knowledge_points'])!,
+      subject: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}subject'])!,
       aiModel: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}ai_model'])!,
       latencyMs: attachedDatabase.typeMapping
@@ -282,6 +297,7 @@ class SolveRecordEntity extends DataClass
   final String answer;
   final String solution;
   final String knowledgePoints;
+  final String subject;
   final String aiModel;
   final int latencyMs;
   final int tokensUsed;
@@ -298,6 +314,7 @@ class SolveRecordEntity extends DataClass
       required this.answer,
       required this.solution,
       required this.knowledgePoints,
+      required this.subject,
       required this.aiModel,
       required this.latencyMs,
       required this.tokensUsed,
@@ -316,6 +333,7 @@ class SolveRecordEntity extends DataClass
     map['answer'] = Variable<String>(answer);
     map['solution'] = Variable<String>(solution);
     map['knowledge_points'] = Variable<String>(knowledgePoints);
+    map['subject'] = Variable<String>(subject);
     map['ai_model'] = Variable<String>(aiModel);
     map['latency_ms'] = Variable<int>(latencyMs);
     map['tokens_used'] = Variable<int>(tokensUsed);
@@ -338,6 +356,7 @@ class SolveRecordEntity extends DataClass
       answer: Value(answer),
       solution: Value(solution),
       knowledgePoints: Value(knowledgePoints),
+      subject: Value(subject),
       aiModel: Value(aiModel),
       latencyMs: Value(latencyMs),
       tokensUsed: Value(tokensUsed),
@@ -362,6 +381,7 @@ class SolveRecordEntity extends DataClass
       answer: serializer.fromJson<String>(json['answer']),
       solution: serializer.fromJson<String>(json['solution']),
       knowledgePoints: serializer.fromJson<String>(json['knowledgePoints']),
+      subject: serializer.fromJson<String>(json['subject']),
       aiModel: serializer.fromJson<String>(json['aiModel']),
       latencyMs: serializer.fromJson<int>(json['latencyMs']),
       tokensUsed: serializer.fromJson<int>(json['tokensUsed']),
@@ -383,6 +403,7 @@ class SolveRecordEntity extends DataClass
       'answer': serializer.toJson<String>(answer),
       'solution': serializer.toJson<String>(solution),
       'knowledgePoints': serializer.toJson<String>(knowledgePoints),
+      'subject': serializer.toJson<String>(subject),
       'aiModel': serializer.toJson<String>(aiModel),
       'latencyMs': serializer.toJson<int>(latencyMs),
       'tokensUsed': serializer.toJson<int>(tokensUsed),
@@ -402,6 +423,7 @@ class SolveRecordEntity extends DataClass
           String? answer,
           String? solution,
           String? knowledgePoints,
+          String? subject,
           String? aiModel,
           int? latencyMs,
           int? tokensUsed,
@@ -418,6 +440,7 @@ class SolveRecordEntity extends DataClass
         answer: answer ?? this.answer,
         solution: solution ?? this.solution,
         knowledgePoints: knowledgePoints ?? this.knowledgePoints,
+        subject: subject ?? this.subject,
         aiModel: aiModel ?? this.aiModel,
         latencyMs: latencyMs ?? this.latencyMs,
         tokensUsed: tokensUsed ?? this.tokensUsed,
@@ -440,6 +463,7 @@ class SolveRecordEntity extends DataClass
       knowledgePoints: data.knowledgePoints.present
           ? data.knowledgePoints.value
           : this.knowledgePoints,
+      subject: data.subject.present ? data.subject.value : this.subject,
       aiModel: data.aiModel.present ? data.aiModel.value : this.aiModel,
       latencyMs: data.latencyMs.present ? data.latencyMs.value : this.latencyMs,
       tokensUsed:
@@ -465,6 +489,7 @@ class SolveRecordEntity extends DataClass
           ..write('answer: $answer, ')
           ..write('solution: $solution, ')
           ..write('knowledgePoints: $knowledgePoints, ')
+          ..write('subject: $subject, ')
           ..write('aiModel: $aiModel, ')
           ..write('latencyMs: $latencyMs, ')
           ..write('tokensUsed: $tokensUsed, ')
@@ -486,6 +511,7 @@ class SolveRecordEntity extends DataClass
       answer,
       solution,
       knowledgePoints,
+      subject,
       aiModel,
       latencyMs,
       tokensUsed,
@@ -505,6 +531,7 @@ class SolveRecordEntity extends DataClass
           other.answer == this.answer &&
           other.solution == this.solution &&
           other.knowledgePoints == this.knowledgePoints &&
+          other.subject == this.subject &&
           other.aiModel == this.aiModel &&
           other.latencyMs == this.latencyMs &&
           other.tokensUsed == this.tokensUsed &&
@@ -523,6 +550,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
   final Value<String> answer;
   final Value<String> solution;
   final Value<String> knowledgePoints;
+  final Value<String> subject;
   final Value<String> aiModel;
   final Value<int> latencyMs;
   final Value<int> tokensUsed;
@@ -539,6 +567,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     this.answer = const Value.absent(),
     this.solution = const Value.absent(),
     this.knowledgePoints = const Value.absent(),
+    this.subject = const Value.absent(),
     this.aiModel = const Value.absent(),
     this.latencyMs = const Value.absent(),
     this.tokensUsed = const Value.absent(),
@@ -556,6 +585,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     this.answer = const Value.absent(),
     this.solution = const Value.absent(),
     this.knowledgePoints = const Value.absent(),
+    this.subject = const Value.absent(),
     this.aiModel = const Value.absent(),
     this.latencyMs = const Value.absent(),
     this.tokensUsed = const Value.absent(),
@@ -573,6 +603,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     Expression<String>? answer,
     Expression<String>? solution,
     Expression<String>? knowledgePoints,
+    Expression<String>? subject,
     Expression<String>? aiModel,
     Expression<int>? latencyMs,
     Expression<int>? tokensUsed,
@@ -590,6 +621,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
       if (answer != null) 'answer': answer,
       if (solution != null) 'solution': solution,
       if (knowledgePoints != null) 'knowledge_points': knowledgePoints,
+      if (subject != null) 'subject': subject,
       if (aiModel != null) 'ai_model': aiModel,
       if (latencyMs != null) 'latency_ms': latencyMs,
       if (tokensUsed != null) 'tokens_used': tokensUsed,
@@ -609,6 +641,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
       Value<String>? answer,
       Value<String>? solution,
       Value<String>? knowledgePoints,
+      Value<String>? subject,
       Value<String>? aiModel,
       Value<int>? latencyMs,
       Value<int>? tokensUsed,
@@ -625,6 +658,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
       answer: answer ?? this.answer,
       solution: solution ?? this.solution,
       knowledgePoints: knowledgePoints ?? this.knowledgePoints,
+      subject: subject ?? this.subject,
       aiModel: aiModel ?? this.aiModel,
       latencyMs: latencyMs ?? this.latencyMs,
       tokensUsed: tokensUsed ?? this.tokensUsed,
@@ -655,6 +689,9 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
     }
     if (knowledgePoints.present) {
       map['knowledge_points'] = Variable<String>(knowledgePoints.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<String>(subject.value);
     }
     if (aiModel.present) {
       map['ai_model'] = Variable<String>(aiModel.value);
@@ -697,6 +734,7 @@ class SolveRecordsCompanion extends UpdateCompanion<SolveRecordEntity> {
           ..write('answer: $answer, ')
           ..write('solution: $solution, ')
           ..write('knowledgePoints: $knowledgePoints, ')
+          ..write('subject: $subject, ')
           ..write('aiModel: $aiModel, ')
           ..write('latencyMs: $latencyMs, ')
           ..write('tokensUsed: $tokensUsed, ')
@@ -760,6 +798,14 @@ class $AnswerLibraryTable extends AnswerLibrary
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('[]'));
+  static const VerificationMeta _subjectMeta =
+      const VerificationMeta('subject');
+  @override
+  late final GeneratedColumn<String> subject = GeneratedColumn<String>(
+      'subject', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('未分类'));
   static const VerificationMeta _sourceMeta = const VerificationMeta('source');
   @override
   late final GeneratedColumn<String> source = GeneratedColumn<String>(
@@ -783,6 +829,7 @@ class $AnswerLibraryTable extends AnswerLibrary
         answer,
         solution,
         knowledgePoints,
+        subject,
         source,
         createdAt
       ];
@@ -832,6 +879,10 @@ class $AnswerLibraryTable extends AnswerLibrary
           knowledgePoints.isAcceptableOrUnknown(
               data['knowledge_points']!, _knowledgePointsMeta));
     }
+    if (data.containsKey('subject')) {
+      context.handle(_subjectMeta,
+          subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta));
+    }
     if (data.containsKey('source')) {
       context.handle(_sourceMeta,
           source.isAcceptableOrUnknown(data['source']!, _sourceMeta));
@@ -861,6 +912,8 @@ class $AnswerLibraryTable extends AnswerLibrary
           .read(DriftSqlType.string, data['${effectivePrefix}solution'])!,
       knowledgePoints: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}knowledge_points'])!,
+      subject: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}subject'])!,
       source: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}source'])!,
       createdAt: attachedDatabase.typeMapping
@@ -882,6 +935,7 @@ class AnswerLibraryEntity extends DataClass
   final String answer;
   final String solution;
   final String knowledgePoints;
+  final String subject;
   final String source;
   final DateTime createdAt;
   const AnswerLibraryEntity(
@@ -891,6 +945,7 @@ class AnswerLibraryEntity extends DataClass
       required this.answer,
       required this.solution,
       required this.knowledgePoints,
+      required this.subject,
       required this.source,
       required this.createdAt});
   @override
@@ -902,6 +957,7 @@ class AnswerLibraryEntity extends DataClass
     map['answer'] = Variable<String>(answer);
     map['solution'] = Variable<String>(solution);
     map['knowledge_points'] = Variable<String>(knowledgePoints);
+    map['subject'] = Variable<String>(subject);
     map['source'] = Variable<String>(source);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -915,6 +971,7 @@ class AnswerLibraryEntity extends DataClass
       answer: Value(answer),
       solution: Value(solution),
       knowledgePoints: Value(knowledgePoints),
+      subject: Value(subject),
       source: Value(source),
       createdAt: Value(createdAt),
     );
@@ -930,6 +987,7 @@ class AnswerLibraryEntity extends DataClass
       answer: serializer.fromJson<String>(json['answer']),
       solution: serializer.fromJson<String>(json['solution']),
       knowledgePoints: serializer.fromJson<String>(json['knowledgePoints']),
+      subject: serializer.fromJson<String>(json['subject']),
       source: serializer.fromJson<String>(json['source']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -944,6 +1002,7 @@ class AnswerLibraryEntity extends DataClass
       'answer': serializer.toJson<String>(answer),
       'solution': serializer.toJson<String>(solution),
       'knowledgePoints': serializer.toJson<String>(knowledgePoints),
+      'subject': serializer.toJson<String>(subject),
       'source': serializer.toJson<String>(source),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -956,6 +1015,7 @@ class AnswerLibraryEntity extends DataClass
           String? answer,
           String? solution,
           String? knowledgePoints,
+          String? subject,
           String? source,
           DateTime? createdAt}) =>
       AnswerLibraryEntity(
@@ -965,6 +1025,7 @@ class AnswerLibraryEntity extends DataClass
         answer: answer ?? this.answer,
         solution: solution ?? this.solution,
         knowledgePoints: knowledgePoints ?? this.knowledgePoints,
+        subject: subject ?? this.subject,
         source: source ?? this.source,
         createdAt: createdAt ?? this.createdAt,
       );
@@ -982,6 +1043,7 @@ class AnswerLibraryEntity extends DataClass
       knowledgePoints: data.knowledgePoints.present
           ? data.knowledgePoints.value
           : this.knowledgePoints,
+      subject: data.subject.present ? data.subject.value : this.subject,
       source: data.source.present ? data.source.value : this.source,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
@@ -996,6 +1058,7 @@ class AnswerLibraryEntity extends DataClass
           ..write('answer: $answer, ')
           ..write('solution: $solution, ')
           ..write('knowledgePoints: $knowledgePoints, ')
+          ..write('subject: $subject, ')
           ..write('source: $source, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -1004,7 +1067,7 @@ class AnswerLibraryEntity extends DataClass
 
   @override
   int get hashCode => Object.hash(id, questionText, questionHash, answer,
-      solution, knowledgePoints, source, createdAt);
+      solution, knowledgePoints, subject, source, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1015,6 +1078,7 @@ class AnswerLibraryEntity extends DataClass
           other.answer == this.answer &&
           other.solution == this.solution &&
           other.knowledgePoints == this.knowledgePoints &&
+          other.subject == this.subject &&
           other.source == this.source &&
           other.createdAt == this.createdAt);
 }
@@ -1026,6 +1090,7 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
   final Value<String> answer;
   final Value<String> solution;
   final Value<String> knowledgePoints;
+  final Value<String> subject;
   final Value<String> source;
   final Value<DateTime> createdAt;
   const AnswerLibraryCompanion({
@@ -1035,6 +1100,7 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
     this.answer = const Value.absent(),
     this.solution = const Value.absent(),
     this.knowledgePoints = const Value.absent(),
+    this.subject = const Value.absent(),
     this.source = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
@@ -1045,6 +1111,7 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
     required String answer,
     this.solution = const Value.absent(),
     this.knowledgePoints = const Value.absent(),
+    this.subject = const Value.absent(),
     this.source = const Value.absent(),
     this.createdAt = const Value.absent(),
   })  : questionText = Value(questionText),
@@ -1057,6 +1124,7 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
     Expression<String>? answer,
     Expression<String>? solution,
     Expression<String>? knowledgePoints,
+    Expression<String>? subject,
     Expression<String>? source,
     Expression<DateTime>? createdAt,
   }) {
@@ -1067,6 +1135,7 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
       if (answer != null) 'answer': answer,
       if (solution != null) 'solution': solution,
       if (knowledgePoints != null) 'knowledge_points': knowledgePoints,
+      if (subject != null) 'subject': subject,
       if (source != null) 'source': source,
       if (createdAt != null) 'created_at': createdAt,
     });
@@ -1079,6 +1148,7 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
       Value<String>? answer,
       Value<String>? solution,
       Value<String>? knowledgePoints,
+      Value<String>? subject,
       Value<String>? source,
       Value<DateTime>? createdAt}) {
     return AnswerLibraryCompanion(
@@ -1088,6 +1158,7 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
       answer: answer ?? this.answer,
       solution: solution ?? this.solution,
       knowledgePoints: knowledgePoints ?? this.knowledgePoints,
+      subject: subject ?? this.subject,
       source: source ?? this.source,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -1114,6 +1185,9 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
     if (knowledgePoints.present) {
       map['knowledge_points'] = Variable<String>(knowledgePoints.value);
     }
+    if (subject.present) {
+      map['subject'] = Variable<String>(subject.value);
+    }
     if (source.present) {
       map['source'] = Variable<String>(source.value);
     }
@@ -1132,6 +1206,7 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
           ..write('answer: $answer, ')
           ..write('solution: $solution, ')
           ..write('knowledgePoints: $knowledgePoints, ')
+          ..write('subject: $subject, ')
           ..write('source: $source, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -1513,6 +1588,7 @@ typedef $$SolveRecordsTableCreateCompanionBuilder = SolveRecordsCompanion
   Value<String> answer,
   Value<String> solution,
   Value<String> knowledgePoints,
+  Value<String> subject,
   Value<String> aiModel,
   Value<int> latencyMs,
   Value<int> tokensUsed,
@@ -1531,6 +1607,7 @@ typedef $$SolveRecordsTableUpdateCompanionBuilder = SolveRecordsCompanion
   Value<String> answer,
   Value<String> solution,
   Value<String> knowledgePoints,
+  Value<String> subject,
   Value<String> aiModel,
   Value<int> latencyMs,
   Value<int> tokensUsed,
@@ -1567,6 +1644,9 @@ class $$SolveRecordsTableFilterComposer
   ColumnFilters<String> get knowledgePoints => $composableBuilder(
       column: $table.knowledgePoints,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get subject => $composableBuilder(
+      column: $table.subject, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get aiModel => $composableBuilder(
       column: $table.aiModel, builder: (column) => ColumnFilters(column));
@@ -1625,6 +1705,9 @@ class $$SolveRecordsTableOrderingComposer
       column: $table.knowledgePoints,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get subject => $composableBuilder(
+      column: $table.subject, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get aiModel => $composableBuilder(
       column: $table.aiModel, builder: (column) => ColumnOrderings(column));
 
@@ -1680,6 +1763,9 @@ class $$SolveRecordsTableAnnotationComposer
 
   GeneratedColumn<String> get knowledgePoints => $composableBuilder(
       column: $table.knowledgePoints, builder: (column) => column);
+
+  GeneratedColumn<String> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
 
   GeneratedColumn<String> get aiModel =>
       $composableBuilder(column: $table.aiModel, builder: (column) => column);
@@ -1743,6 +1829,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             Value<String> answer = const Value.absent(),
             Value<String> solution = const Value.absent(),
             Value<String> knowledgePoints = const Value.absent(),
+            Value<String> subject = const Value.absent(),
             Value<String> aiModel = const Value.absent(),
             Value<int> latencyMs = const Value.absent(),
             Value<int> tokensUsed = const Value.absent(),
@@ -1760,6 +1847,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             answer: answer,
             solution: solution,
             knowledgePoints: knowledgePoints,
+            subject: subject,
             aiModel: aiModel,
             latencyMs: latencyMs,
             tokensUsed: tokensUsed,
@@ -1777,6 +1865,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             Value<String> answer = const Value.absent(),
             Value<String> solution = const Value.absent(),
             Value<String> knowledgePoints = const Value.absent(),
+            Value<String> subject = const Value.absent(),
             Value<String> aiModel = const Value.absent(),
             Value<int> latencyMs = const Value.absent(),
             Value<int> tokensUsed = const Value.absent(),
@@ -1794,6 +1883,7 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             answer: answer,
             solution: solution,
             knowledgePoints: knowledgePoints,
+            subject: subject,
             aiModel: aiModel,
             latencyMs: latencyMs,
             tokensUsed: tokensUsed,
@@ -1835,6 +1925,7 @@ typedef $$AnswerLibraryTableCreateCompanionBuilder = AnswerLibraryCompanion
   required String answer,
   Value<String> solution,
   Value<String> knowledgePoints,
+  Value<String> subject,
   Value<String> source,
   Value<DateTime> createdAt,
 });
@@ -1846,6 +1937,7 @@ typedef $$AnswerLibraryTableUpdateCompanionBuilder = AnswerLibraryCompanion
   Value<String> answer,
   Value<String> solution,
   Value<String> knowledgePoints,
+  Value<String> subject,
   Value<String> source,
   Value<DateTime> createdAt,
 });
@@ -1877,6 +1969,9 @@ class $$AnswerLibraryTableFilterComposer
   ColumnFilters<String> get knowledgePoints => $composableBuilder(
       column: $table.knowledgePoints,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get subject => $composableBuilder(
+      column: $table.subject, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get source => $composableBuilder(
       column: $table.source, builder: (column) => ColumnFilters(column));
@@ -1915,6 +2010,9 @@ class $$AnswerLibraryTableOrderingComposer
       column: $table.knowledgePoints,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get subject => $composableBuilder(
+      column: $table.subject, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get source => $composableBuilder(
       column: $table.source, builder: (column) => ColumnOrderings(column));
 
@@ -1948,6 +2046,9 @@ class $$AnswerLibraryTableAnnotationComposer
 
   GeneratedColumn<String> get knowledgePoints => $composableBuilder(
       column: $table.knowledgePoints, builder: (column) => column);
+
+  GeneratedColumn<String> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
 
   GeneratedColumn<String> get source =>
       $composableBuilder(column: $table.source, builder: (column) => column);
@@ -1988,6 +2089,7 @@ class $$AnswerLibraryTableTableManager extends RootTableManager<
             Value<String> answer = const Value.absent(),
             Value<String> solution = const Value.absent(),
             Value<String> knowledgePoints = const Value.absent(),
+            Value<String> subject = const Value.absent(),
             Value<String> source = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
           }) =>
@@ -1998,6 +2100,7 @@ class $$AnswerLibraryTableTableManager extends RootTableManager<
             answer: answer,
             solution: solution,
             knowledgePoints: knowledgePoints,
+            subject: subject,
             source: source,
             createdAt: createdAt,
           ),
@@ -2008,6 +2111,7 @@ class $$AnswerLibraryTableTableManager extends RootTableManager<
             required String answer,
             Value<String> solution = const Value.absent(),
             Value<String> knowledgePoints = const Value.absent(),
+            Value<String> subject = const Value.absent(),
             Value<String> source = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
           }) =>
@@ -2018,6 +2122,7 @@ class $$AnswerLibraryTableTableManager extends RootTableManager<
             answer: answer,
             solution: solution,
             knowledgePoints: knowledgePoints,
+            subject: subject,
             source: source,
             createdAt: createdAt,
           ),
