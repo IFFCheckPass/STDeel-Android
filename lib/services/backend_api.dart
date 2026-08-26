@@ -242,8 +242,11 @@ class BackendApi {
 
   /// PUT /users/api-key — 把本机配置的 AI api-key 上传账号（跨端同步）
   ///
-  /// 后端已适配该接口；失败返回 false（不阻塞用户操作），由 UI 提示可稍后重试。
-  Future<bool> syncUserApiKeys(Map<String, String> keys) async {
+  /// 后端契约：body `{user_id, api_keys: [{api_key, name?, enabled?}, ...]}`
+  /// 全量覆盖该用户所有 key；也兼容纯字符串数组 `["sk-...", ...]`。
+  /// [keys] 为对象列表：`{"api_key": "...", "name": "...", "enabled": true}`。
+  /// 失败返回 false（不阻塞用户操作），由 UI 提示可稍后重试。
+  Future<bool> syncUserApiKeys(List<Map<String, dynamic>> keys) async {
     if (keys.isEmpty) return true;
     final url = '${await _baseUrl()}/users/api-key';
     try {

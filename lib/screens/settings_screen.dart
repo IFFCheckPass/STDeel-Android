@@ -634,11 +634,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     if (ok) {
       showGlassSnackBar(context, '账号绑定成功', success: true);
-      // 上传本机 AI API Key 到账号（跨端同步）
-      final keys = <String, String>{};
+      // 上传本机 AI API Key 到账号（跨端同步），与后端契约对齐：
+      // {user_id, api_keys:[{api_key,name,enabled}]}
+      final keys = <Map<String, dynamic>>[];
       for (final c in s.combos) {
         if (c.isComplete && c.apiKey.trim().isNotEmpty) {
-          keys[c.name] = c.apiKey.trim();
+          keys.add({
+            'api_key': c.apiKey.trim(),
+            'name': c.name,
+            'enabled': c.enabled,
+          });
         }
       }
       final api = context.read<BackendApi>();

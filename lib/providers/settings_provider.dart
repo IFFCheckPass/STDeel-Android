@@ -233,15 +233,19 @@ class SettingsProvider extends ChangeNotifier {
 
   /// 把本机已配置且完整的 AI API Key 打包上传到当前绑定账号。
   ///
-  /// 后端接口 `PUT /users/api-key`（body: {user_id, api_keys: {name: key}}）。
-  /// 若接口未适配 / 网络失败则静默失败，由手动绑定流程向用户提示可稍后重试。
+  /// 后端接口 `PUT /users/api-key`，body `{user_id, api_keys:[{api_key,name,enabled}]}`
+  /// 全量覆盖。若接口未适配 / 网络失败则静默失败，由手动绑定流程向用户提示。
   Future<void> _syncAccountApiKeys() async {
     final u = _username;
     if (u == null || u.isEmpty) return;
-    final keys = <String, String>{};
+    final keys = <Map<String, dynamic>>[];
     for (final c in _combos) {
       if (c.isComplete && c.apiKey.trim().isNotEmpty) {
-        keys[c.name] = c.apiKey.trim();
+        keys.add({
+          'api_key': c.apiKey.trim(),
+          'name': c.name,
+          'enabled': c.enabled,
+        });
       }
     }
     if (keys.isEmpty) return;
