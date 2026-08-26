@@ -198,13 +198,39 @@ class SyncService {
     return (success: success, failed: failed);
   }
 
+  /// 待删除队列（本地已删、后端待删的墓碑）重试：删除成功即移除。
+  /// @return 成功删除的条数
+  Future<int> flushPendingDeletes() async {
+    var done = 0;
+    try {
+      final pending = await _db.pendingDeleteDao.getAll();
+      for (final p in pending) {
+        try {
+          final ok = await _api.deleteSolveRecord(p.remoteId);
+          if (ok) {
+            await _db.pendingDeleteDao.remove(p.remoteId);
+            done++;
+          }
+        } catch (_) {
+          // 网络/后端失败：保留待下次重试
+        }
+      }
+    } catch (_) {
+      // 忽略
+    }
+    return done;
+  }
+
   /// 下拉后端解题记录并写回本地（仅正确=近1个月 / 错误=近3个月）。
   ///
   /// 按后端主键 remoteId 幂等合并，避免重复插入。后端未适配或失败时静默。
+  /// 会跳过待删除队列中的 remoteId，防止被我方刚删除的记录再次回写。
   /// @return 写回本地（新增或更新）的记录条数
   Future<int> pullSolveRecords() async {
     var applied = 0;
     try {
+      // 本地"待删除"主键：下拉时一律跳过，真正实现删除
+      final tombstone = await _db.pendingDeleteDao.getAllRemoteIds();
       final rows = await _api.fetchSolveRecords(
         correctDays: 30,
         wrongDays: 90,
@@ -212,6 +238,7 @@ class SyncService {
       for (final row in rows) {
         final remoteId = (row['id'] as num?)?.toInt();
         if (remoteId == null || remoteId <= 0) continue;
+        if (tombstone.contains(remoteId)) continue; // 待删除：跳过回写
         await _db.solveRecordDao.upsertFromBackend(
           remoteId: remoteId,
           questionText: row['question_text']?.toString() ?? '',
@@ -245,6 +272,9 @@ class SyncService {
   /// 手动同步入口：先上行补传本地未同步记录，再从后端下拉回写缺失记录。
   /// @return 各阶段计数，供 UI 展示"成功/失败 x 条"。
   Future<SyncResult> syncAll() async {
+    // 先清空"本地已删、后端待删"的墓碑队列，再上行补传、下行回写，
+    // 避免被待删除记录回写覆盖。
+    await flushPendingDeletes();
     final upload = await flushUnsynced();
     final pulled = await pullSolveRecords();
     return SyncResult(

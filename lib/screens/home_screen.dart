@@ -9,6 +9,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/solve_provider.dart';
+import '../services/image_cache_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/glass.dart';
 import '../widgets/thinking_indicator.dart';
 import 'answer_library_screen.dart';
@@ -29,6 +31,26 @@ class _HomeScreenState extends State<HomeScreen> {
   final _picker = ImagePicker();
 
   static const _titles = ['思谛', '知识点统计', '标准答案库', '设置'];
+
+  @override
+  void initState() {
+    super.initState();
+    // 启动期后台维护：清理超过 15 天的题目图片缓存 + 重试"本地已删、后端待删"
+    // 的记录删除。fire-and-forget，不阻塞 UI。
+    WidgetsBinding.instance.addPostFrameCallback((_) => _runStartupMaintenance());
+  }
+
+  Future<void> _runStartupMaintenance() async {
+    // 先取服务引用，避免 await 之后跨异步间隙使用 context
+    final imgCache = context.read<ImageCacheService>();
+    final sync = context.read<SyncService>();
+    try {
+      await imgCache.cleanupExpired();
+    } catch (_) {}
+    try {
+      await sync.flushPendingDeletes();
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {

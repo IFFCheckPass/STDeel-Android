@@ -17,6 +17,7 @@ import 'services/ai_service.dart';
 import 'services/backend_api.dart';
 import 'services/document_split_service.dart';
 import 'services/failover_manager.dart';
+import 'services/image_cache_service.dart';
 import 'services/notification_service.dart';
 import 'services/sync_service.dart';
 import 'widgets/glass.dart';
@@ -78,6 +79,9 @@ class AppProviders extends StatelessWidget {
         Provider<DocumentSplitService>(
           create: (ctx) =>
               DocumentSplitService(aiService: ctx.read<AiService>()),
+        ),
+        Provider<ImageCacheService>(
+          create: (_) => ImageCacheService(),
         ),
         Provider<NotificationService>(
           // main() 已对注入实例 await init()；传入则复用，避免重复初始化。

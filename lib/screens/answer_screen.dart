@@ -309,6 +309,8 @@ class _AnswerScreenState extends State<AnswerScreen> {
       questionText: q.content,
       models: settings.buildModelChain(),
       thinkTimeout: settings.thinkTimeout,
+      // 从首次进入本页的图片取回原图，重答时题干选项/图表不丢失
+      imagePath: widget.imagePath,
     );
   }
 
@@ -322,6 +324,7 @@ class _AnswerScreenState extends State<AnswerScreen> {
       questionText: q.content,
       models: settings.buildModelChain(),
       thinkTimeout: settings.thinkTimeout,
+      imagePath: widget.imagePath,
     );
   }
 

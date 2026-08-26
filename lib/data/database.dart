@@ -14,14 +14,15 @@ import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 import 'daos/answer_library_dao.dart';
 import 'daos/knowledge_dao.dart';
+import 'daos/pending_delete_dao.dart';
 import 'daos/solve_record_dao.dart';
 import 'tables.dart';
 
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [SolveRecords, AnswerLibrary, KnowledgeMastery],
-  daos: [SolveRecordDao, AnswerLibraryDao, KnowledgeDao],
+  tables: [SolveRecords, AnswerLibrary, KnowledgeMastery, PendingDeletes],
+  daos: [SolveRecordDao, AnswerLibraryDao, KnowledgeDao, PendingDeleteDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase._() : super(_open());
@@ -31,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase._();
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -44,6 +45,8 @@ class AppDatabase extends _$AppDatabase {
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_solve_feedback ON solve_records(user_feedback)',
           );
+          // 待删除队列（本地已删、后端待删的墓碑记录）
+          await m.create(pendingDeletes);
         },
         onUpgrade: (m, from, to) async {
           // v1 -> v2：为四色状态标记新增 actionType 字段
@@ -77,6 +80,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 5) {
             await m.addColumn(solveRecords, solveRecords.subject);
             await m.addColumn(answerLibrary, answerLibrary.subject);
+          }
+          // v5 -> v6：新增待删除队列（删除墓碑，防止删除后下拉回写）
+          if (from < 6) {
+            await m.create(pendingDeletes);
           }
         },
       );

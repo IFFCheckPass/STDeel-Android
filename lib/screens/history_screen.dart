@@ -397,12 +397,14 @@ class _HistoryCardState extends State<_HistoryCard> {
     // 立即进入解题页（导航先发），answer 页 watch SolveProvider 展示流式思维链
     final nav = Navigator.of(context).pushNamed('/answer');
     // 触发重答/疑问（fire，不阻塞导航，让流式事件驱动 answer 页 UI）
+    // 携带原图缓存路径，保证重答/解答时题干选项与图表完整。
     if (actionType == 'retry') {
       solve.retry(
         questionId: r.id,
         questionText: questionText,
         models: models,
         thinkTimeout: settings.thinkTimeout,
+        imagePath: r.imagePath,
       );
     } else {
       solve.askDetailed(
@@ -410,6 +412,7 @@ class _HistoryCardState extends State<_HistoryCard> {
         questionText: questionText,
         models: models,
         thinkTimeout: settings.thinkTimeout,
+        imagePath: r.imagePath,
       );
     }
     await nav;
@@ -494,12 +497,18 @@ class _HistoryCardState extends State<_HistoryCard> {
     final db = context.read<AppDatabase>();
     final api = context.read<BackendApi>();
     // 先删服务器（若已有后端主键），再删本地，避免"服务器残留 + 本地消失"。
-    final remoteOk = await api.deleteSolveRecord(r.remoteId ?? 0);
+    final remoteId = r.remoteId ?? 0;
+    final remoteOk = await api.deleteSolveRecord(remoteId);
+    if (!remoteOk && remoteId > 0) {
+      // 服务器删除失败：把 remoteId 记入待删除队列，下次同步时重试删除，
+      // 并确保下拉回写时跳过该主键——否则本地已删、服务器又回写，等于删不掉。
+      await db.pendingDeleteDao.add(remoteId);
+    }
     await db.solveRecordDao.deleteById(r.id);
     if (!mounted) return;
     showGlassSnackBar(
       context,
-      remoteOk ? '已删除该记录' : '已删除本地记录（服务器同步未成功，可稍后重试）',
+      remoteOk ? '已删除该记录' : '已删除本地记录（服务器删除未成功，已记录待下次同步重试）',
       success: remoteOk,
       error: !remoteOk,
     );

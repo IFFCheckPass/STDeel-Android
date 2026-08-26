@@ -25,6 +25,10 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
           .get();
 
+  /// 按本地主键取单条记录（重答/疑问取原图用）
+  Future<SolveRecordEntity?> getById(int id) =>
+      (select(solveRecords)..where((t) => t.id.equals(id))).getSingleOrNull();
+
   /// 获取所有标记为某反馈（correct / wrong）的记录
   Future<List<SolveRecordEntity>> getByFeedback(String feedback) =>
       (select(solveRecords)

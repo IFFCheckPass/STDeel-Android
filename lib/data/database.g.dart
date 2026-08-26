@@ -1561,6 +1561,224 @@ class KnowledgeMasteryCompanion
   }
 }
 
+class $PendingDeletesTable extends PendingDeletes
+    with TableInfo<$PendingDeletesTable, PendingDeleteEntity> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingDeletesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _remoteIdMeta =
+      const VerificationMeta('remoteId');
+  @override
+  late final GeneratedColumn<int> remoteId = GeneratedColumn<int>(
+      'remote_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [id, remoteId, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_deletes';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<PendingDeleteEntity> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('remote_id')) {
+      context.handle(_remoteIdMeta,
+          remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta));
+    } else if (isInserting) {
+      context.missing(_remoteIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PendingDeleteEntity map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingDeleteEntity(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      remoteId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}remote_id'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $PendingDeletesTable createAlias(String alias) {
+    return $PendingDeletesTable(attachedDatabase, alias);
+  }
+}
+
+class PendingDeleteEntity extends DataClass
+    implements Insertable<PendingDeleteEntity> {
+  final int id;
+  final int remoteId;
+  final DateTime createdAt;
+  const PendingDeleteEntity(
+      {required this.id, required this.remoteId, required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['remote_id'] = Variable<int>(remoteId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PendingDeletesCompanion toCompanion(bool nullToAbsent) {
+    return PendingDeletesCompanion(
+      id: Value(id),
+      remoteId: Value(remoteId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PendingDeleteEntity.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingDeleteEntity(
+      id: serializer.fromJson<int>(json['id']),
+      remoteId: serializer.fromJson<int>(json['remoteId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'remoteId': serializer.toJson<int>(remoteId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PendingDeleteEntity copyWith({int? id, int? remoteId, DateTime? createdAt}) =>
+      PendingDeleteEntity(
+        id: id ?? this.id,
+        remoteId: remoteId ?? this.remoteId,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  PendingDeleteEntity copyWithCompanion(PendingDeletesCompanion data) {
+    return PendingDeleteEntity(
+      id: data.id.present ? data.id.value : this.id,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingDeleteEntity(')
+          ..write('id: $id, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, remoteId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingDeleteEntity &&
+          other.id == this.id &&
+          other.remoteId == this.remoteId &&
+          other.createdAt == this.createdAt);
+}
+
+class PendingDeletesCompanion extends UpdateCompanion<PendingDeleteEntity> {
+  final Value<int> id;
+  final Value<int> remoteId;
+  final Value<DateTime> createdAt;
+  const PendingDeletesCompanion({
+    this.id = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  PendingDeletesCompanion.insert({
+    this.id = const Value.absent(),
+    required int remoteId,
+    this.createdAt = const Value.absent(),
+  }) : remoteId = Value(remoteId);
+  static Insertable<PendingDeleteEntity> custom({
+    Expression<int>? id,
+    Expression<int>? remoteId,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (remoteId != null) 'remote_id': remoteId,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  PendingDeletesCompanion copyWith(
+      {Value<int>? id, Value<int>? remoteId, Value<DateTime>? createdAt}) {
+    return PendingDeletesCompanion(
+      id: id ?? this.id,
+      remoteId: remoteId ?? this.remoteId,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<int>(remoteId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingDeletesCompanion(')
+          ..write('id: $id, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1568,17 +1786,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AnswerLibraryTable answerLibrary = $AnswerLibraryTable(this);
   late final $KnowledgeMasteryTable knowledgeMastery =
       $KnowledgeMasteryTable(this);
+  late final $PendingDeletesTable pendingDeletes = $PendingDeletesTable(this);
   late final SolveRecordDao solveRecordDao =
       SolveRecordDao(this as AppDatabase);
   late final AnswerLibraryDao answerLibraryDao =
       AnswerLibraryDao(this as AppDatabase);
   late final KnowledgeDao knowledgeDao = KnowledgeDao(this as AppDatabase);
+  late final PendingDeleteDao pendingDeleteDao =
+      PendingDeleteDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [solveRecords, answerLibrary, knowledgeMastery];
+      [solveRecords, answerLibrary, knowledgeMastery, pendingDeletes];
 }
 
 typedef $$SolveRecordsTableCreateCompanionBuilder = SolveRecordsCompanion
@@ -2336,6 +2557,144 @@ typedef $$KnowledgeMasteryTableProcessedTableManager = ProcessedTableManager<
     ),
     KnowledgeMasteryEntity,
     PrefetchHooks Function()>;
+typedef $$PendingDeletesTableCreateCompanionBuilder = PendingDeletesCompanion
+    Function({
+  Value<int> id,
+  required int remoteId,
+  Value<DateTime> createdAt,
+});
+typedef $$PendingDeletesTableUpdateCompanionBuilder = PendingDeletesCompanion
+    Function({
+  Value<int> id,
+  Value<int> remoteId,
+  Value<DateTime> createdAt,
+});
+
+class $$PendingDeletesTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingDeletesTable> {
+  $$PendingDeletesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get remoteId => $composableBuilder(
+      column: $table.remoteId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PendingDeletesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingDeletesTable> {
+  $$PendingDeletesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get remoteId => $composableBuilder(
+      column: $table.remoteId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PendingDeletesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingDeletesTable> {
+  $$PendingDeletesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PendingDeletesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PendingDeletesTable,
+    PendingDeleteEntity,
+    $$PendingDeletesTableFilterComposer,
+    $$PendingDeletesTableOrderingComposer,
+    $$PendingDeletesTableAnnotationComposer,
+    $$PendingDeletesTableCreateCompanionBuilder,
+    $$PendingDeletesTableUpdateCompanionBuilder,
+    (
+      PendingDeleteEntity,
+      BaseReferences<_$AppDatabase, $PendingDeletesTable, PendingDeleteEntity>
+    ),
+    PendingDeleteEntity,
+    PrefetchHooks Function()> {
+  $$PendingDeletesTableTableManager(
+      _$AppDatabase db, $PendingDeletesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingDeletesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingDeletesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PendingDeletesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> remoteId = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              PendingDeletesCompanion(
+            id: id,
+            remoteId: remoteId,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int remoteId,
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              PendingDeletesCompanion.insert(
+            id: id,
+            remoteId: remoteId,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PendingDeletesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PendingDeletesTable,
+    PendingDeleteEntity,
+    $$PendingDeletesTableFilterComposer,
+    $$PendingDeletesTableOrderingComposer,
+    $$PendingDeletesTableAnnotationComposer,
+    $$PendingDeletesTableCreateCompanionBuilder,
+    $$PendingDeletesTableUpdateCompanionBuilder,
+    (
+      PendingDeleteEntity,
+      BaseReferences<_$AppDatabase, $PendingDeletesTable, PendingDeleteEntity>
+    ),
+    PendingDeleteEntity,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2346,4 +2705,6 @@ class $AppDatabaseManager {
       $$AnswerLibraryTableTableManager(_db, _db.answerLibrary);
   $$KnowledgeMasteryTableTableManager get knowledgeMastery =>
       $$KnowledgeMasteryTableTableManager(_db, _db.knowledgeMastery);
+  $$PendingDeletesTableTableManager get pendingDeletes =>
+      $$PendingDeletesTableTableManager(_db, _db.pendingDeletes);
 }

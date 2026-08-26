@@ -19,6 +19,7 @@ import '../models/solve_result.dart';
 import '../services/ai_service.dart';
 import '../services/backend_api.dart';
 import '../services/failover_manager.dart';
+import '../services/image_cache_service.dart';
 import '../services/notification_service.dart';
 import '../services/sync_service.dart';
 
@@ -71,17 +72,20 @@ class SolveProvider extends ChangeNotifier {
     required NotificationService notificationService,
     required AppDatabase database,
     required BackendApi backendApi,
+    ImageCacheService? imageCacheService,
   })  : _failover = failoverManager,
         _sync = syncService,
         _notifier = notificationService,
         _db = database,
-        _api = backendApi;
+        _api = backendApi,
+        _imgCache = imageCacheService ?? ImageCacheService();
 
   final FailoverManager _failover;
   final SyncService _sync;
   final NotificationService _notifier;
   final AppDatabase _db;
   final BackendApi _api;
+  final ImageCacheService _imgCache;
 
   SolveUiState _state = const SolveUiState();
   SolveUiState get state => _state;
@@ -102,7 +106,10 @@ class SolveProvider extends ChangeNotifier {
     }
 
     final sw = Stopwatch()..start();
-    final file = File(imagePath);
+    // 先复制到持久缓存目录：临时目录的图片可能被 OS 随时清掉，
+    // 重答/疑问需要从本地取回原图（含完整题干选项 / 图表）。
+    final durablePath = await _imgCache.cacheImage(imagePath);
+    final file = File(durablePath);
     if (!await file.exists()) {
       _state = const SolveUiState(
         status: SolveStatus.error,
@@ -126,7 +133,7 @@ class SolveProvider extends ChangeNotifier {
           base64Image: base64Image,
           thinkTimeoutSeconds: thinkTimeout,
         )
-        .listen((event) => _handleStreamEvent(event, sw, imagePath));
+        .listen((event) => _handleStreamEvent(event, sw, durablePath));
     await sub.asFuture();
     await sub.cancel();
   }
@@ -313,7 +320,11 @@ class SolveProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 纯文本调 AI（重答 / 疑问 / 举一反三共用）
+  /// 纯文本调 AI（重答 / 疑问 / 举一反三共用）。
+  ///
+  /// 为修复「重答丢失题干选项 / 图表」的产品级问题：
+  /// 传入 [imagePath] 时会把原图一并（base64）交给 AI；若未传入，则按
+  /// [questionId] 从本地记录取回其缓存图片，尽量保证与首次解题一致的信息量。
   Future<void> _solveText({
     required String userPrompt,
     required int questionId,
@@ -322,6 +333,7 @@ class SolveProvider extends ChangeNotifier {
     required String startLabel,
     String actionType = 'retry',
     bool overwriteRecord = true,
+    String? imagePath,
   }) async {
     if (models.isEmpty) {
       _state = const SolveUiState(
@@ -336,10 +348,31 @@ class SolveProvider extends ChangeNotifier {
       currentModel: startLabel,
     );
     notifyListeners();
+
+    // 解析重答要携带的图片：优先显式传入；否则从记录取回缓存图。
+    String? base64Image;
+    var imagePathToUse = imagePath;
+    final plain = File(imagePathToUse ?? '');
+    if (imagePathToUse != null &&
+        imagePathToUse.isNotEmpty &&
+        await plain.exists()) {
+      final bytes = await plain.readAsBytes();
+      base64Image = base64Encode(bytes);
+    } else if (questionId > 0) {
+      final rec = await _db.solveRecordDao.getById(questionId);
+      if (rec != null && rec.imagePath.isNotEmpty) {
+        final f = File(rec.imagePath);
+        if (await f.exists()) {
+          imagePathToUse = rec.imagePath;
+          base64Image = base64Encode(await f.readAsBytes());
+        }
+      }
+    }
+
     final sub = _failover
         .solve(
           models: models,
-          base64Image: null,
+          base64Image: base64Image,
           userPrompt: userPrompt,
           thinkTimeoutSeconds: thinkTimeout,
         )
@@ -416,12 +449,13 @@ class SolveProvider extends ChangeNotifier {
     }
   }
 
-  /// "重答"按钮：以高温度重调 AI 覆盖答案
+  /// "重答"按钮：以高温度重调 AI 覆盖答案；同时携带原图保证题干选项/图表完整。
   Future<void> retry({
     required int questionId,
     required String questionText,
     required List<AiModelConfig> models,
     int thinkTimeout = 20,
+    String? imagePath,
   }) =>
       _solveText(
         userPrompt: '请重新解答以下题目，给出新的答案与解答：\n$questionText',
@@ -430,14 +464,16 @@ class SolveProvider extends ChangeNotifier {
         thinkTimeout: thinkTimeout,
         startLabel: '重答中',
         actionType: 'retry',
+        imagePath: imagePath,
       );
 
-  /// "疑问"按钮：附加详细分步指令
+  /// "疑问"按钮：附加详细分步指令；同样携带原图。
   Future<void> askDetailed({
     required int questionId,
     required String questionText,
     required List<AiModelConfig> models,
     int thinkTimeout = 20,
+    String? imagePath,
   }) =>
       _solveText(
         userPrompt: '$questionText${AiConfig.detailedSolutionSuffix}',
@@ -446,6 +482,7 @@ class SolveProvider extends ChangeNotifier {
         thinkTimeout: thinkTimeout,
         startLabel: '解答中',
         actionType: 'detail',
+        imagePath: imagePath,
       );
 
   /// 计算题目哈希（与本地答案库一致）

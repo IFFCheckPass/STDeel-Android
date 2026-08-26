@@ -13,7 +13,9 @@ import 'package:provider/provider.dart';
 import '../models/ai_combo.dart';
 import '../providers/settings_provider.dart';
 import '../services/backend_api.dart';
+import '../services/image_cache_service.dart';
 import '../services/sync_service.dart';
+import '../services/update_service.dart';
 import '../widgets/glass.dart';
 import 'combo_edit_screen.dart';
 
@@ -28,15 +30,169 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _urlCtrl;
   late TextEditingController _usernameCtrl;
   bool _initialized = false;
+  // 首次异步加载完成后只回填一次输入框，避免与用户正在输入冲突。
+  bool _didInitialSync = false;
+  // 图片缓存统计
+  ImageCacheStats? _cacheStats;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_initialized) return;
+    if (!_initialized) {
+      // 先建空控制器，等 SettingsProvider.load() 完成后统一回填，
+      // 修复"重启后用户名已绑定但文本框为空 / 内网 URL 被默认公网地址覆盖"
+      // 的加载竞态（didChangeDependencies 会随 provider notify 再次触发）。
+      _urlCtrl = TextEditingController();
+      _usernameCtrl = TextEditingController();
+      _initialized = true;
+      _loadCacheStats();
+    }
     final s = context.read<SettingsProvider>();
-    _urlCtrl = TextEditingController(text: s.backendUrl);
-    _usernameCtrl = TextEditingController(text: s.username ?? '');
-    _initialized = true;
+    if (s.loaded && !_didInitialSync) {
+      _didInitialSync = true;
+      _urlCtrl.text = s.backendUrl;
+      _usernameCtrl.text = s.username ?? '';
+    }
+  }
+
+  /// 读取图片缓存占用（用于展示 + 清除后刷新）
+  Future<void> _loadCacheStats() async {
+    final stats = await context.read<ImageCacheService>().stats();
+    if (!mounted) return;
+    setState(() => _cacheStats = stats);
+  }
+
+  /// 清除题目图片缓存
+  Future<void> _clearImageCache() async {
+    final img = context.read<ImageCacheService>();
+    final count = await img.clearAll().onError((_, __) => 0);
+    await _loadCacheStats();
+    if (!mounted) return;
+    showGlassSnackBar(context, '已清除图片缓存（$count 张）', success: true);
+  }
+
+  /// 检查并提示更新（从 GitHub Releases 拉取）
+  Future<void> _checkUpdate() async {
+    showGlassSnackBar(context, '正在检查更新…');
+    try {
+      final info = await UpdateService().checkForUpdate();
+      if (!mounted) return;
+      if (info == null) {
+        showGlassSnackBar(context, '已是最新版本', success: true);
+        return;
+      }
+      _showUpdateDialog(info);
+    } catch (e) {
+      if (!mounted) return;
+      showGlassSnackBar(context, '检查更新失败：$e', error: true);
+    }
+  }
+
+  /// 展示"发现新版本"对话框；确认后下载并调用系统安装器
+  void _showUpdateDialog(AppUpdateInfo info) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text('发现新版本 ${info.tagName}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '当前版本：${info.version}\n'
+                '${info.apkUrl.isEmpty ? '' : '包体：${info.humanApkSize}'}',
+                style: const TextStyle(fontSize: 13, height: 1.6),
+              ),
+              if (info.notes.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text('更新内容：',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(info.notes.trim(),
+                    style: const TextStyle(fontSize: 13, height: 1.6)),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('暂不更新'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _startUpdate(info);
+            },
+            child: const Text('立即更新'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 下载 APK 并触发安装（带进度提示）
+  Future<void> _startUpdate(AppUpdateInfo info) async {
+    if (info.apkUrl.isEmpty) {
+      if (!mounted) return;
+      showGlassSnackBar(context, '该版本未附带 APK 安装包', error: true);
+      return;
+    }
+    // 进度对话框
+    final progress = ValueNotifier<double>(0);
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('正在下载更新…'),
+        content: ValueListenableBuilder<double>(
+          valueListenable: progress,
+          builder: (ctx, v, _) {
+            final pct = (v * 100).toStringAsFixed(0);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LinearProgressIndicator(value: v > 0 ? v : null),
+                const SizedBox(height: 10),
+                Text('$pct%',
+                    style: const TextStyle(fontSize: 13)),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+    if (ok == false || !mounted) return; // 用户取消
+
+    try {
+      final update = UpdateService();
+      final path = await update.downloadApk(
+        info.apkUrl,
+        onProgress: (received, total) =>
+            progress.value = total > 0 ? received / total : 0,
+      );
+      if (!mounted) return;
+      await update.installApk(path);
+      if (!mounted) return;
+      showGlassSnackBar(
+        context,
+        '已下载并拉起安装器，请按系统提示完成安装（若提示未知来源，请先授权）',
+        success: true,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      showGlassSnackBar(context, '更新失败：$e', error: true);
+    } finally {
+      progress.dispose();
+    }
   }
 
   @override
@@ -379,6 +535,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 12),
+
+          // ===== 存储与缓存 =====
+          GlassSectionTitle('存储与缓存'),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.photo_library_outlined,
+                        color: G.accent, size: 18),
+                    const SizedBox(width: 10),
+                    const Text('题目图片缓存',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    Text(
+                      _cacheStats == null
+                          ? '…'
+                          : '${_cacheStats!.count} 张 / ${_cacheStats!.humanSize}',
+                      style: TextStyle(fontSize: 12, color: G.textSecondary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '解题时拍摄/选用的图片会临时缓存在本地（供重答、疑问时读取完整题干选项与图表），超过 15 天自动清理。',
+                  style: TextStyle(fontSize: 12, color: G.textFaint, height: 1.5),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _clearImageCache,
+                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                  label: const Text('清除图片缓存'),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // ===== 关于 / 更新 =====
+          GlassSectionTitle('关于 / 更新'),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.system_update_alt,
+                        color: G.accent, size: 18),
+                    const SizedBox(width: 10),
+                    const Text('应用内更新',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    Text(
+                      '版本 v0.5.5',
+                      style: TextStyle(fontSize: 12, color: G.textSecondary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '从 GitHub 拉取最新 Release，检查到新版本后自动下载 APK 并拉起系统安装器。',
+                  style: TextStyle(fontSize: 12, color: G.textFaint, height: 1.5),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _checkUpdate,
+                  icon: const Icon(Icons.system_update_outlined, size: 18),
+                  label: const Text('检查更新'),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
           Center(
             child: Text(
               '思谛 STDeel · v0.5.5',
@@ -439,23 +671,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _saveUrl(BuildContext context, SettingsProvider s) async {
-    final url = _urlCtrl.text.trim();
-    if (url.isEmpty) {
-      showGlassSnackBar(context, 'URL 不能为空', error: true);
-      return;
-    }
-    // 规范化：补全 https://、去尾部斜杠、保留子路径与端口号
-    final normalized = normalizeBaseUrl(url);
+    // 允许清空：公网地址可为空（仅用内网），内网/公网均可留空回退另一通道
+    final raw = _urlCtrl.text.trim();
+    final url = raw.isEmpty ? '' : normalizeBaseUrl(raw);
     _urlCtrl.value = TextEditingValue(
-      text: normalized,
-      selection: TextSelection.collapsed(offset: normalized.length),
+      text: url,
+      selection: TextSelection.collapsed(offset: url.length),
     );
     if (s.usePublicBackend) {
-      await s.setBackendUrlPublic(normalized);
-      showGlassSnackBar(context, '公网后端 URL 已保存', success: true);
+      await s.setBackendUrlPublic(url);
+      showGlassSnackBar(
+        context,
+        url.isEmpty ? '已清空公网后端 URL（可仅用内网）' : '公网后端 URL 已保存',
+        success: true,
+      );
     } else {
-      await s.setBackendUrlIntranet(normalized);
-      showGlassSnackBar(context, '内网后端 URL 已保存', success: true);
+      await s.setBackendUrlIntranet(url);
+      showGlassSnackBar(
+        context,
+        url.isEmpty ? '已清空内网后端 URL' : '内网后端 URL 已保存',
+        success: true,
+      );
     }
   }
 

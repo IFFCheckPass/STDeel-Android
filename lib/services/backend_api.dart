@@ -32,12 +32,15 @@ class BackendApi {
 
   /// 后端 URL：公网 / 内网双通道。
   ///
-  /// - 公网：存于 `backend_url`（兼容旧版本字段），默认 [AppConfig.defaultBackendUrl]
+  /// - 公网：存于 `backend_url`（兼容旧版本字段），默认为 [AppConfig.defaultBackendUrl]
   /// - 内网：存于 `backend_url_intranet`，默认为空；未配置时回退公网
   /// - 内网支持 `http://192.168.x.x:端口/前缀` 这类带协议、内网 IP 与端口号的地址
   ///   （[normalizeBaseUrl] 会保留已有的 http:// 与端口，仅当无协议时才补 https://）
   ///
   /// 实际使用哪套由 [AppConfig.keyBackendUsePublic] 决定（默认公网）。
+  ///
+  /// 公网地址允许为空（配合仅内网使用的场景）：优先取所选通道，若所选通道为空
+  /// 则回退另一通道，两者皆空才回退默认公网地址。
   Future<String> _baseUrl() async {
     _prefsCache ??= await SharedPreferences.getInstance();
 
@@ -45,25 +48,31 @@ class BackendApi {
     final usePublic =
         _prefsCache!.getBool(AppConfig.keyBackendUsePublic) ?? true;
 
-    var active = _prefsCache!.getString(AppConfig.keyBackendUrl) ??
-        AppConfig.defaultBackendUrl;
+    final public = _prefsCache!.getString(AppConfig.keyBackendUrl) ?? '';
+    final intra = _prefsCache!.getString(AppConfig.keyBackendUrlIntranet) ?? '';
 
-    if (!usePublic) {
-      // 内网未配置时回退公网，避免空串导致请求出错
-      final intra = _prefsCache!.getString(AppConfig.keyBackendUrlIntranet) ?? '';
-      if (intra.trim().isNotEmpty) active = intra;
+    String active;
+    if (usePublic) {
+      // 公网优先；公网空时回退内网
+      active = public.trim().isNotEmpty
+          ? public
+          : (intra.trim().isNotEmpty ? intra : AppConfig.defaultBackendUrl);
+    } else {
+      // 内网优先；内网空时回退公网
+      active = intra.trim().isNotEmpty
+          ? intra
+          : (public.trim().isNotEmpty ? public : AppConfig.defaultBackendUrl);
     }
 
     return normalizeBaseUrl(active);
   }
 
-  /// 读取公网后端 URL（含默认值兜底）
+  /// 读取公网后端 URL（可能为空——允许仅内网场景；不再强加默认值）
   Future<String> getBackendUrlPublic() async {
     _prefsCache ??= await SharedPreferences.getInstance();
-    return normalizeBaseUrl(
-      _prefsCache!.getString(AppConfig.keyBackendUrl) ??
-          AppConfig.defaultBackendUrl,
-    );
+    final v = _prefsCache!.getString(AppConfig.keyBackendUrl);
+    if (v == null || v.trim().isEmpty) return '';
+    return normalizeBaseUrl(v);
   }
 
   Future<void> setBackendUrlPublic(String url) async {

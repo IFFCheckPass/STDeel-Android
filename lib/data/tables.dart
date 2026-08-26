@@ -77,3 +77,18 @@ class KnowledgeMastery extends Table {
   DateTimeColumn get updatedAt =>
       dateTime().withDefault(currentDateAndTime)();
 }
+
+/// 待删除队列（删除墓碑）
+///
+/// 本地删除某条解题记录时，若后端删除失败（含记录已无本地副本），
+/// 先把其 [remoteId] 记入本表；下次手动/启动同步时重试删除服务端记录，
+/// 成功后再移除条目。下拉同步时必须跳过这些 remoteId，避免"服务器残留 + 本地消失
+/// 后又被下拉回写"，从而真正实现删除。
+@DataClassName('PendingDeleteEntity')
+class PendingDeletes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  // 后端主键 id，用于 DELETE /solve-records/{id}
+  IntColumn get remoteId => integer()();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+}

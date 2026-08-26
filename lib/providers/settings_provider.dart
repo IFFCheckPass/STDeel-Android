@@ -6,6 +6,7 @@
 ///   - 后端 URL 与连通性测试
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -74,6 +75,11 @@ class SettingsProvider extends ChangeNotifier {
     }
     _loaded = true;
     notifyListeners();
+    // 已有绑定用户名时，启动即尝试把本机 AI API Key 上报账号（跨端同步）。
+    // fire-and-forget：后端未适配或网络失败时静默，等待下次启动/手动绑定重试。
+    if (_username != null && _username!.isNotEmpty) {
+      unawaited(_syncAccountApiKeys());
+    }
   }
 
   Future<void> _persist() async {
@@ -224,6 +230,23 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   // ---------- 账号绑定（隐藏预埋，后端适配前不暴露到 UI） ----------
+
+  /// 把本机已配置且完整的 AI API Key 打包上传到当前绑定账号。
+  ///
+  /// 后端接口 `PUT /users/api-key`（body: {user_id, api_keys: {name: key}}）。
+  /// 若接口未适配 / 网络失败则静默失败，由手动绑定流程向用户提示可稍后重试。
+  Future<void> _syncAccountApiKeys() async {
+    final u = _username;
+    if (u == null || u.isEmpty) return;
+    final keys = <String, String>{};
+    for (final c in _combos) {
+      if (c.isComplete && c.apiKey.trim().isNotEmpty) {
+        keys[c.name] = c.apiKey.trim();
+      }
+    }
+    if (keys.isEmpty) return;
+    await _api.syncUserApiKeys(keys);
+  }
 
   /// 设置用户名：本地持久化，并按 username 尝试绑定后端同一用户。
   /// @return 绑定是否成功（后端未适配 / 网络失败返回 false，但仍保留本地用户名）
