@@ -104,3 +104,29 @@ rm -f android/upload-keystore.jks android/key.properties
 - **代码同步**：先 `git push` 源码到 `main`（commit `8ff2471`），再 `gh release create v0.5.5 --prerelease app-0.5.5.apk`（0.5.5 < 1.0.0 → Pre-Release）。
   - 链接：https://github.com/IFFCheckPass/STDeel-Android/releases/tag/v0.5.5
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.5.5.apk`，保持 `main` 干净。
+
+### v0.6.0（✅ 已成功编译并发布）
+- 版本：`pubspec.yaml version: 0.6.0+12`；`settings_screen.dart` 底部文案 `v0.6.0`。
+- **功能**：对齐后端 `PUT /users/api-key` 批量契约（发送 `{user_id, api_keys:[{api_key,name,enabled}]}`，全量覆盖该用户所有 key）。
+- **环境笔记（本沙箱重置后）**：
+  - 工具链目录：`/opt/flutter`（3.47.1 stable）、`/opt/android`（compileSdk 36、build-tools 36.0.0、NDK 28.2.13676358）。JDK 17 位于 `/root/.local/share/mise/installs/java/17.0.2`。
+  - 构建前必须显式设置环境变量（否则命中 mise shim 的 JDK25）：`export ANDROID_HOME=/opt/android; export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java17 2>/dev/null))))`，并用 miseshims 之外的 JDK17 `java`。本环境用：`export PATH=/opt/flutter/bin:/root/.local/share/mise/installs/java/17.0.2/bin:$PATH`，再 `unset _MISE_SESSION`。
+- **⚠️ Gradle daemon 锁（新坑）**：
+  - 报错：`Timeout waiting to lock journal cache (/root/.gradle/caches/journal-1). Owner PID <残留>`。
+  - 原因：上次构建留下的残留 Gradle/Java 进程（旧 PID）未退出，占用 journal 锁。构建命令 `flutter build apk --release -PsigningEnabled` 使用 `| tail` 时会先启动 daemon，若上轮进程未清，daemon 间会互锁。
+  - 处理：`ps aux | grep -iE 'gradle|GradleDaemon'` 找到残留 PID，`kill -9 <pid>` 全部清掉；Gradle daemon 对锁超时约 1 分钟后报错。清理后重建即可。
+- **⚠️ 旧 KGP 插件与 Gradle 9.3.1 不兼容（本次新增的重要坑）**：
+  - 报错：`:app:compileReleaseJavaWithJavac` — `GeneratedPluginRegistrant.java:49 cannot find symbol class PackageInfoPlugin`。
+  - 原因：App 用 AGP 9.1.0/ Kotlin 2.4.0/ Gradle 9.3.1（Flutter 3.47 模板）；而插件 `package_info_plus` 8.3.1 内置 `kotlin-gradle-plugin:1.7.22` + AGP 8.3.1，KGP 1.7.22 在 Gradle 9 下编译 Kotlin 不产出 class（其 AAR 存在但 `classes=0`），导致 registrant 引用的类缺失。同批 `pdfx` 用 KGP 1.9.23 可正常编译。
+  - 修复：把 pub-cache 插件 build.gradle 的 Kotlin/AGP 提到与 pdfx 一致（已验证能在 Gradle 9 下编译）：
+    ```bash
+    sed -i "s/kotlin_version = '1.7.22'/kotlin_version = '1.9.23'/" $P/package_info_plus-8.3.1/android/build.gradle
+    sed -i "s#com.android.tools.build:gradle:8.3.1#com.android.tools.build:gradle:8.5.2#" $P/package_info_plus-8.3.1/android/build.gradle
+    ```
+    本环境 pub-cache 在 `/root/.pub-cache/hosted/pub.dev/`（以 `.dart_tool/package_config.json` 的 rootUri 为准）。
+  - file_picker 的 compileSdk：本次路径是 `pub.dev` 副本（v0.5.5 记的是 `pub.flutter-io.cn`），同样 `sed -i 's/compileSdk 34/compileSdk 36/' .../file_picker-8.3.7/android/build.gradle`。
+- **构建**：`flutter build apk --release -PsigningEnabled`，增量 Gradle 阶段约 **68s**（前两次因锁/KGP/file_picker 先后失败，清理更正后续传成功）。产物 **app-release.apk 68.3MB**。
+- **签名**：从 `feature/signing-config` 取 `upload-keystore.jks`+`key.properties`（不并入 main）；`apksigner verify --print-certs` SHA-256 `ed7379e8...`（与历史一致）。产物改名 `app-0.6.0.apk`。
+- **发布**：先 `git push` 到 `main`（commit `1e16c5b`），再 `gh release create v0.6.0 --prerelease app-0.6.0.apk`（0.6.0 < 1.0.0 → Pre-Release）。
+  - 链接：https://github.com/IFFCheckPass/STDeel-Android/releases/tag/v0.6.0
+- 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.6.0.apk`，保持 `main` 干净。
