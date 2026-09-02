@@ -130,3 +130,22 @@ rm -f android/upload-keystore.jks android/key.properties
 - **发布**：先 `git push` 到 `main`（commit `1e16c5b`），再 `gh release create v0.6.0 --prerelease app-0.6.0.apk`（0.6.0 < 1.0.0 → Pre-Release）。
   - 链接：https://github.com/IFFCheckPass/STDeel-Android/releases/tag/v0.6.0
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.6.0.apk`，保持 `main` 干净。
+
+### v0.6.1（✅ 已成功编译并发布）
+- 版本：`pubspec.yaml version: 0.6.1+13`；`settings_screen.dart` 底部文案 `v0.6.1`。
+- **功能**：解题（`AiService.callModelStream`→`_runStream`）请求体**不再发送 `temperature`**，且不固定 `top_p`/`n`/`presence_penalty`，全部由 AI API 端默认决定。删除未用的 `AiConfig.retryTemperature`。`generateRaw`（文档拆分，非解题）与 `testConnection`（连通性 ping）保持各自固定参数不变。
+  - 改动点：`lib/services/ai_service.dart`（删 temperature 参数+字段）、`lib/config/ai_config.dart`（删 retryTemperature）。
+- **环境重建成套记录（本沙箱 /opt 被清空后的完整恢复）**：
+  - Flutter 3.47.1：腾讯云镜像下载 `https://mirrors.cloud.tencent.com/flutter/.../flutter_linux_3.47.1-stable.tar.xz`（约 1.5GB，比 storage.googleapis.com 快非常多），解压到 `/opt/flutter`，并 `git config --global --add safe.directory /opt/flutter` 消除 dubious ownership 报错。
+  - Android SDK：从 `https://mirrors.cloud.tencent.com/AndroidSDK/` 下载 platform-36、build-tools、platform-tools、NDK r28c、cmake 各 zip 解压到 `/opt/android/{platforms,build-tools,platform-tools,ndk,cmake}`。注意 build-tools zip 内层多一层 `android-16/`、NDK zip 内层 `android-ndk-r28c/`。
+  - 依赖：`export FLUTTER_STORAGE_BASE_URL=https://mirrors.cloud.tencent.com/flutter; export PUB_HOSTED_URL=https://pub.flutter-io.cn`；本项目本次 pub-cache 落在 `/root/.pub-cache/hosted/pub.flutter-io.cn/`。
+- **⚠️ compileSdk 统一到 36（本沙箱重建后一次到位）**：
+  - 腾讯镜像没有基础 `platforms;android-34`（只有 ext 包，不含 android.jar），所以不能靠安装 34/35，而是把插件 compileSdk 统一抬到 36。受影响插件：`flutter_local_notifications`(34)、`package_info_plus`(34)、`pdfx`(35)、`sqlite3_flutter_libs`(35)、`jni`(1.0.0 & 1.0.3, 35)、`jni_flutter`(1.0.1 & 1.0.3, 35)、`file_picker`(34)。均在各自 `android/build.gradle` 用 `sed` 改到 36。
+  - KGP 补丁同 v0.6.0（package_info_plus 1.7.22→1.9.23、AGP 8.3.1→8.5.2，否则类不产出）。
+  - **License hash 必需正确**：`/opt/android/licenses/android-sdk-license` 必须写标准 hash（`24333f8a...` + `850de8a1`，每行一个），否则 Gradle 报 `License for package not accepted` 并尝试联网装缺失 platform。
+- **⚠️ 打包 OOM（新/复发）**：`gradle.properties` 的 `-Xmx1280m` 在整链编译时堆不足，产生 `java_pid*.hprof`。改为 `-Xmx2048m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=128m`（仍保留 `-XX:-UseContainerSupport` 规避 JDK17 cgroup NPE）后成功。报错前先 `rm -f android/java_pid*.hprof`。
+- **构建**：`flutter build apk --release -PsigningEnabled`，Gradle 阶段 **120.8s**（含原生编译缓存重建）。产物 **app-release.apk 68.3MB**。
+- **签名**：`apksigner verify --print-certs` → STDeel，SHA-256 `ed7379e8...`（与历史一致）。产物改名 `app-0.6.1.apk`。
+- **发布**：先 `git push` 到 `main`（commit `3933a67`），再 `gh release create v0.6.1 --prerelease app-0.6.1.apk`（0.6.1 < 1.0.0 → Pre-Release）。
+  - 链接：https://github.com/IFFCheckPass/STDeel-Android/releases/tag/v0.6.1
+- 收尾：删除 `/tmp/app-0.6.1.apk`，保持 `main` 干净。
