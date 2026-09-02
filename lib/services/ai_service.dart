@@ -79,7 +79,6 @@ class AiService {
     required String? base64Image,
     String userPrompt = '',
     int thinkTimeoutSeconds = 20,
-    double temperature = 0.6,
   }) {
     final controller = StreamController<AiStreamEvent>();
     final stopWatch = Stopwatch()..start();
@@ -90,7 +89,6 @@ class AiService {
       base64Image: base64Image,
       userPrompt: userPrompt,
       thinkTimeoutSeconds: thinkTimeoutSeconds,
-      temperature: temperature,
       stopWatch: stopWatch,
     ).whenComplete(() {
       if (!controller.isClosed) controller.close();
@@ -105,7 +103,6 @@ class AiService {
     required String? base64Image,
     required String userPrompt,
     required int thinkTimeoutSeconds,
-    required double temperature,
     required Stopwatch stopWatch,
   }) async {
     final url = '${model.endpoint}/chat/completions';
@@ -135,7 +132,6 @@ class AiService {
       'model': model.model,
       'messages': messages,
       'stream': true,
-      'temperature': temperature,
     };
 
     // 用 CancelToken 让 think 超时能真正取消 HTTP 请求

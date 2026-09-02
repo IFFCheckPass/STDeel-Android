@@ -57,9 +57,6 @@ class AiConfig {
   static const String detailedSolutionSuffix =
       '。请给出详细分步解答，每一步都要清晰说明。';
 
-  /// 重答时使用的温度参数（覆盖当前答案）
-  static const double retryTemperature = 0.9;
-
   /// 答案库文档解析：把一份 PDF/Word 里的题目与答案，拆成结构化条目。
   ///
   /// 输入可能是整篇文档文本（docx/doc/文本型 PDF），也可能是文档页面图片
