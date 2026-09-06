@@ -149,3 +149,22 @@ rm -f android/upload-keystore.jks android/key.properties
 - **发布**：先 `git push` 到 `main`（commit `3933a67`），再 `gh release create v0.6.1 --prerelease app-0.6.1.apk`（0.6.1 < 1.0.0 → Pre-Release）。
   - 链接：https://github.com/IFFCheckPass/STDeel-Android/releases/tag/v0.6.1
 - 收尾：删除 `/tmp/app-0.6.1.apk`，保持 `main` 干净。
+
+### v0.6.2（✅ 已成功编译并发布）
+- 版本：`pubspec.yaml version: 0.6.2+14`；`settings_screen.dart` 底部文案 `v0.6.2`。
+- **功能**：
+  1. **故障码记录**（新文件 `lib/services/fault_log_service.dart`）：AI 调用 / GitHub 更新 / 更新下载等故障时自动记录「来源、时间、HTTP 状态码、中文概要」，SharedPreferences 持久化（上限 50 条），`ChangeNotifier` 供 UI 刷新。
+  2. 设置页新增「故障码记录」玻璃卡片：查看最近 8 条、一键复制全部、清空记录（`_FaultLogTile` / `_copyFaultLogs` / `_clearFaultLogs`）。
+  3. 故障码提示统一为中文：`ai_service.dart` 新增 `_zhHttpMessage`、`update_service.dart` 新增 `_zhGithubMessage` / `_zhDownloadMessage`，屏蔽英文原返回。
+  4. **修复 GitHub 更新 403/404**：改用 `/releases` 列表接口（替代 `/releases/latest`，后者对"仅有 pre-release"的仓库返回 404）+ 显式 `User-Agent`（修复 403/限流）。
+  5. `app.dart` 注入 `Provider<FaultLogService>`。
+- **⚠️ 网络受限容器（本沙箱）关键修复：`dl.google.com` TLS 握手失败不可达**：
+  - 项目原 `android/settings.gradle.kts`、`android/build.gradle.kts` 的 `google()`/`mavenCentral()` 回退会去连 dl.google.com → 报 `Could not get resource 'https://dl.google.com/...gradle-8.5.2.pom' ... Remote host terminated the handshake`。
+  - 处理：根 `settings.gradle.kts`/`build.gradle.kts` **删除 `google()` 与 `mavenCentral()` 回退**，仅保留 `maven.aliyun.com/repository/{google,central,gradle-plugin}` + `gradlePluginPortal()`；并对 pub-cache 里 10 个插件的 `android/build.gradle` 用 `sed` 把 `google()`→`maven { url 'https://maven.aliyun.com/repository/google' }`、`mavenCentral()`→`.../central`（涉及 file_picker、flutter_local_notifications、google_mobile_ads、jni、jni_flutter、package_info_plus、pdfx、sqlite3_flutter_libs）。
+- **环境重建（/opt 又被清空**，与 v0.6.1 相同）：Flutter 3.47.1（腾讯镜像 `/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.1-stable.tar.xz`，约 1.5GB）装到 `/opt/flutter`，需 `git config --global --add safe.directory /opt/flutter`；Android SDK 各组件 zip 从 `https://mirrors.cloud.tencent.com/AndroidSDK/` 下载并解压到 `/opt/android`（platform-36_r02.zip→platforms/android-36、build-tools_r36_linux.zip→build-tools/36.0.0、platform-tools 注意 zip 内层多套一层需拍平、NDK r28c→ndk/28.2.13676358、cmake-3.22.1 内层为扁平需要放进版本目录）。license 文件写标准 hash；JDK17 在 `/root/.local/share/mise/installs/java/17.0.2`。
+- **构建**：`flutter build apk --release -PsigningEnabled`，首跑 Gradle 下载依赖约 3m20s（网络错误后被镜像修复），再跑因修复 Dart 类型错误重跑约 **466.8s**。产物 **app-release.apk 68.4MB**。
+- **⚠️ Dart 编译错误（本次新增）**：`update_service.dart` 拉取 `/releases` 列表时 `it` 是 `Map<dynamic,dynamic>`，赋给 `Map<String,dynamic>? chosen` 报类型错；改为 `chosen = Map<String, dynamic>.from(it)` 修复。
+- **签名**：`apksigner verify --print-certs` → STDeel，SHA-256 `ed7379e8...`（与历史一致）。产物改名 `app-0.6.2.apk`。
+- **发布**：先 `git push` 到 `main`（commit `7b49239`），再 `gh release create v0.6.2 --prerelease ... /tmp/app-0.6.2.apk`（0.6.2 < 1.0.0 → Pre-Release）。产物 SHA-256 `c43e59ae...`。
+  - 链接：https://github.com/IFFCheckPass/STDeel-Android/releases/tag/v0.6.2
+- 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.6.2.apk`，保持 `main` 干净。
