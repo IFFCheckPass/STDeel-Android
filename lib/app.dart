@@ -17,6 +17,7 @@ import 'services/ai_service.dart';
 import 'services/backend_api.dart';
 import 'services/document_split_service.dart';
 import 'services/failover_manager.dart';
+import 'services/fault_log_service.dart';
 import 'services/image_cache_service.dart';
 import 'services/notification_service.dart';
 import 'services/sync_service.dart';
@@ -74,6 +75,9 @@ class AppProviders extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<AppDatabase>(create: (_) => AppDatabase.instance),
+        Provider<FaultLogService>(
+          create: (_) => FaultLogService.instance..load(),
+        ),
         Provider<BackendApi>(create: (_) => BackendApi()),
         Provider<AiService>(create: (_) => AiService()),
         Provider<DocumentSplitService>(

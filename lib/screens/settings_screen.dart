@@ -8,11 +8,13 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/ai_combo.dart';
 import '../providers/settings_provider.dart';
 import '../services/backend_api.dart';
+import '../services/fault_log_service.dart';
 import '../services/image_cache_service.dart';
 import '../services/sync_service.dart';
 import '../services/update_service.dart';
@@ -590,7 +592,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const Spacer(),
                     Text(
-                      '版本 v0.6.1',
+                      '版本 v0.6.2',
                       style: TextStyle(fontSize: 12, color: G.textSecondary),
                     ),
                   ],
@@ -611,9 +613,92 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
           const SizedBox(height: 12),
+
+          // ===== 故障码记录 =====
+          GlassSectionTitle('故障码记录'),
+          GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.bug_report_outlined,
+                        color: G.coral, size: 18),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'AI 调用、GitHub 更新、后端同步等环节出错时自动记录诊断信息，'
+                        '便于定位问题。展示统一为中文；可一键复制发给开发反馈。',
+                        style: TextStyle(fontSize: 12, height: 1.5),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Consumer<FaultLogService>(
+                  builder: (context, logService, _) {
+                    final logs = logService.logs;
+                    if (logs.isEmpty) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '暂无故障记录',
+                          style: TextStyle(
+                              fontSize: 12, color: G.textFaint),
+                        ),
+                      );
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final log in logs.take(8)) ...[
+                          _FaultLogTile(log: log),
+                          if (log != logs.take(8).last)
+                            Divider(height: 1, color: G.glassBorder.withOpacity(0.4)),
+                        ],
+                        if (logs.length > 8)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              '共 ${logs.length} 条，仅显示最近 8 条',
+                              style: TextStyle(
+                                  fontSize: 11, color: G.textFaint),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _copyFaultLogs,
+                        icon: const Icon(Icons.copy_all_outlined, size: 18),
+                        label: const Text('复制全部'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _clearFaultLogs,
+                        icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                        label: const Text('清空记录'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
           Center(
             child: Text(
-              '思谛 STDeel · v0.6.1',
+              '思谛 STDeel · v0.6.2',
               style: TextStyle(fontSize: 11, color: G.textFaint),
             ),
           ),
@@ -795,6 +880,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 复制全部故障码记录到剪贴板，便于用户反馈定位问题
+  Future<void> _copyFaultLogs() async {
+    final logs = context.read<FaultLogService>().logs;
+    if (logs.isEmpty) {
+      showGlassSnackBar(context, '暂无故障码记录可复制', error: true);
+      return;
+    }
+    final header = '思谛 STDeel 故障码记录（${DateTime.now().toLocal()}）';
+    final body = logs.map((l) => l.toClipboardText()).join('\n');
+    final text = '$header\n$body';
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    showGlassSnackBar(context, '已复制 ${logs.length} 条故障码记录', success: true);
+  }
+
+  /// 清空全部故障码记录
+  Future<void> _clearFaultLogs() async {
+    await context.read<FaultLogService>().clear();
+    if (!mounted) return;
+    showGlassSnackBar(context, '已清空故障码记录', success: true);
+  }
+}
+
+/// 单条故障码记录卡片
+class _FaultLogTile extends StatelessWidget {
+  const _FaultLogTile({super.key, required this.log});
+
+  final FaultLog log;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: G.coral.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '${log.code}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: G.coral,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '[${log.source}] ${log.timeText}',
+                  style: TextStyle(fontSize: 11, color: G.textFaint),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  log.summary,
+                  style: const TextStyle(fontSize: 12, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

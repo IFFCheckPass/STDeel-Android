@@ -13,6 +13,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'fault_log_service.dart';
+
 /// GitHub 仓库（Release 源）
 const String kUpdateRepoOwner = 'IFFCheckPass';
 const String kUpdateRepoName = 'STDeel-Android';
@@ -59,11 +61,25 @@ class AppUpdateInfo {
 }
 
 class UpdateService {
-  UpdateService({Dio? dio}) : _dio = dio ?? Dio();
+  UpdateService({Dio? dio}) : _dio = dio ?? _buildDio();
 
   final Dio _dio;
 
   static const MethodChannel _channel = MethodChannel('stdeel/updater');
+
+  /// 构造带统一配置的 Dio：显式 User-Agent（GitHub 对默认/dio 的 UA 可能拒绝，403 的常见诱因）、
+  /// 更长的连接/接收超时、主动跟随重定向。
+  static Dio _buildDio() {
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 20),
+      receiveTimeout: const Duration(seconds: 30),
+      headers: const {
+        'User-Agent': 'STDeel-Android/update-check',
+        'Accept': 'application/vnd.github+json',
+      },
+    ));
+    return dio;
+  }
 
   /// 读取当前安装版本号
   static Future<String> currentVersion() async {
@@ -94,21 +110,59 @@ class UpdateService {
     return 0;
   }
 
-  /// 拉取最新 Release 信息。失败抛异常（可读原因）。
+  /// 拉取最新 Release 信息。失败抛异常（可读中文原因）。
+  ///
+  /// 说明：因版本号 < 1.0.0 发布为 Pre-Release，GitHub 的 `/releases/latest`
+  /// 对"只有 pre-release"的仓库会返回 404。因此这里直接拉取 `/releases` 列表，
+  /// 取第一项（GitHub 按创建时间倒序），即可拿到最新版本（含 pre-release）。
   Future<AppUpdateInfo> fetchLatest({
     bool includePrerelease = false,
   }) async {
-    final url = includePrerelease
-        ? 'https://api.github.com/repos/$kUpdateRepoOwner/$kUpdateRepoName/releases'
-        : 'https://api.github.com/repos/$kUpdateRepoOwner/$kUpdateRepoName/releases/latest';
-    final resp = await _dio.get<Map<String, dynamic>>(
-      url,
-      options: Options(
-        headers: {'Accept': 'application/vnd.github+json'},
-        receiveTimeout: const Duration(seconds: 15),
-      ),
-    );
-    final r = resp.data!;
+    final listUrl =
+        'https://api.github.com/repos/$kUpdateRepoOwner/$kUpdateRepoName/releases';
+    try {
+      final resp = await _dio.get<List<dynamic>>(
+        listUrl,
+        queryParameters: {'per_page': 20},
+        options: Options(receiveTimeout: const Duration(seconds: 15)),
+      );
+      final list = resp.data ?? const [];
+      Map<String, dynamic>? chosen;
+      for (final it in list) {
+        if (it is! Map) continue;
+        final draft = it['draft'] == true;
+        final prerelease = it['prerelease'] == true;
+        if (draft) continue;
+        if (!includePrerelease && prerelease) continue;
+        chosen = Map<String, dynamic>.from(it);
+        break;
+      }
+      if (chosen == null) {
+        throw '未找到任何已发布版本';
+      }
+      return _parseRelease(chosen);
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      final zh = _zhGithubMessage(code);
+      FaultLogService.instance.record(
+        source: 'GitHub 更新',
+        code: code != null ? '$code' : '网络',
+        summary: zh,
+      );
+      throw code == 404
+          ? '检查更新失败：GitHub 未找到该仓库的发布（HTTP 404）'
+          : code == 403
+              ? '检查更新失败：GitHub 访问受限（HTTP 403，多为请求过于频繁被限流）'
+              : code == 429
+                  ? '检查更新失败：GitHub 触发限流（HTTP 429），请稍后再试'
+                  : '检查更新失败：$zh';
+    } catch (e) {
+      throw '检查更新失败：$e';
+    }
+  }
+
+  /// 把单个 release JSON 解析为 [AppUpdateInfo]
+  AppUpdateInfo _parseRelease(Map<String, dynamic> r) {
     final tag = (r['tag_name'] ?? '').toString();
     final assets = (r['assets'] as List<dynamic>?) ?? const [];
     String apkUrl = '';
@@ -132,6 +186,28 @@ class UpdateService {
     );
   }
 
+  /// GitHub 常见 HTTP 状态码 → 中文说明
+  String _zhGithubMessage(int? code) {
+    switch (code) {
+      case 403:
+        return '访问被拒绝（HTTP 403）——通常为 GitHub API 未带 Token 触发限流，'
+            '或所在网络对 api.github.com 有限制，请稍后再试';
+      case 404:
+        return '资源不存在（HTTP 404）——Release 版本或指定位被移除，'
+            '或仓库不可见';
+      case 429:
+        return '爬取过于频繁（HTTP 429）——已触发限流，请稍后再试';
+      case 500:
+        return 'GitHub 服务器错误（HTTP 500）';
+      case 502:
+        return '网关错误（HTTP 502）';
+      case 503:
+        return '服务暂不可用（HTTP 503）';
+      default:
+        return code == null ? '网络连接失败，无法访问 GitHub' : 'GitHub 请求失败（HTTP $code）';
+    }
+  }
+
   /// 检查是否有可用更新。
   /// @return 有更新返回 [AppUpdateInfo]；无返回 null（抛错则说明无法检查）。
   Future<AppUpdateInfo?> checkForUpdate() async {
@@ -148,18 +224,45 @@ class UpdateService {
   }) async {
     final dir = await getTemporaryDirectory();
     final dest = p.join(dir.path, 'stdeel_update_${DateTime.now().millisecondsSinceEpoch}.apk');
-    await _dio.download(
-      url,
-      dest,
-      onReceiveProgress: (received, total) =>
-          onProgress?.call(received, total),
-      options: Options(
-        receiveTimeout: const Duration(minutes: 2),
-        followRedirects: true,
-      ),
-    );
+    try {
+      await _dio.download(
+        url,
+        dest,
+        onReceiveProgress: (received, total) =>
+            onProgress?.call(received, total),
+        options: Options(
+          receiveTimeout: const Duration(minutes: 2),
+          followRedirects: true,
+        ),
+      );
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      final zh = _zhGithubMessage(code ?? (e.type == DioExceptionType.connectionError ? null : code));
+      FaultLogService.instance.record(
+        source: 'GitHub 更新下载',
+        code: code != null ? '$code' : (e.type == DioExceptionType.connectionError ? '网络' : '未知'),
+        summary: e.type == DioExceptionType.connectionError
+            ? '下载文件网络连接失败'
+            : zh,
+      );
+      throw '更新包下载失败：${_zhDownloadMessage(e)}';
+    }
     if (!File(dest).existsSync()) throw '下载失败：未生成 APK 文件';
     return dest;
+  }
+
+  String _zhDownloadMessage(DioException e) {
+    final code = e.response?.statusCode;
+    if (code == 403) return '下载被拒绝（HTTP 403），多为下载地址被限流或网络限制';
+    if (code == 404) return '下载地址不存在（HTTP 404），版本包可能已被移除';
+    if (code == 429) return '下载触发限流（HTTP 429），请稍后再试';
+    if (e.type == DioExceptionType.connectionError) return '网络连接中断，请检查网络后重试';
+    if (e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionTimeout) {
+      return '下载超时';
+    }
+    return code != null ? 'HTTP $code' : (e.message ?? '未知错误');
   }
 
   /// 触发系统安装器安装（原生 MethodChannel）。

@@ -2117,7 +2117,11 @@ class $$SolveRecordsTableTableManager extends RootTableManager<
             createdAt: createdAt,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$SolveRecordsTable, SolveRecordEntity>(table),
+                    BaseReferences<_$AppDatabase, $SolveRecordsTable,
+                        SolveRecordEntity>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -2348,7 +2352,12 @@ class $$AnswerLibraryTableTableManager extends RootTableManager<
             createdAt: createdAt,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AnswerLibraryTable, AnswerLibraryEntity>(
+                        table),
+                    BaseReferences<_$AppDatabase, $AnswerLibraryTable,
+                        AnswerLibraryEntity>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -2535,7 +2544,12 @@ class $$KnowledgeMasteryTableTableManager extends RootTableManager<
             updatedAt: updatedAt,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$KnowledgeMasteryTable, KnowledgeMasteryEntity>(
+                        table),
+                    BaseReferences<_$AppDatabase, $KnowledgeMasteryTable,
+                        KnowledgeMasteryEntity>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -2674,7 +2688,12 @@ class $$PendingDeletesTableTableManager extends RootTableManager<
             createdAt: createdAt,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$PendingDeletesTable, PendingDeleteEntity>(
+                        table),
+                    BaseReferences<_$AppDatabase, $PendingDeletesTable,
+                        PendingDeleteEntity>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));

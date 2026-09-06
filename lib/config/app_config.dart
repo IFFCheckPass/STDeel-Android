@@ -23,6 +23,7 @@ class AppConfig {
   static const String keyAiCombos = 'ai_combos_json';
   static const String keyThinkTimeoutSeconds = 'think_timeout_seconds';
   static const String keyThemeMode = 'theme_mode'; // system | light | dark
+  static const String keyFaultLogs = 'fault_logs_json'; // 故障码记录诊断日志
 
   /// 账号绑定（用户名 / api-key 同步）功能开关
   ///

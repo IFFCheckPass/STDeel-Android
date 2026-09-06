@@ -19,6 +19,7 @@ import 'package:dio/dio.dart';
 
 import '../config/ai_config.dart';
 import '../models/solve_result.dart';
+import 'fault_log_service.dart';
 
 /// 流式事件，供 UI 与 FailoverManager 消费
 abstract class AiStreamEvent {
@@ -309,8 +310,9 @@ class AiService {
     }
   }
 
-  /// 从 DioException 中提取可读的错误信息（含 HTTP 状态码与响应体）
-  Future<String> _dioErrorText(DioException e) async {
+  /// 从 DioException 中提取可读的错误信息（含 HTTP 状态码与响应体）。
+  /// 始终返回中文文案；同时记录一条故障码到 [FaultLogService]，便于在设置页查看/复制。
+  Future<String> _dioErrorText(DioException e, {String source = 'AI 调用'}) async {
     final resp = e.response;
     if (resp != null) {
       var msg = 'HTTP ${resp.statusCode}';
@@ -328,22 +330,78 @@ class AiService {
         final m = (data['error'] as Map)['message'];
         if (m != null) msg = 'HTTP ${resp.statusCode} $m';
       }
+      // 记录故障码，供设置页展示/复制；文案统一为中文。
+      final cn = _zhHttpMessage(resp.statusCode);
+      FaultLogService.instance.record(
+        source: source,
+        code: '${resp.statusCode}',
+        summary: _trimCn(cn + (resp.statusCode == 404 &&
+                (msg.contains('api.github.com') || msg.contains('github'))
+            ? '（GitHub 资源/版本不存在或已被限制访问）'
+            : '')),
+      );
+      if (resp.statusCode == 404 || resp.statusCode == 403 || resp.statusCode == 429) {
+        return 'HTTP ${resp.statusCode} $cn';
+      }
       return msg;
     }
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
+        FaultLogService.instance.record(source: source, code: '超时', summary: '网络连接超时');
         return '连接超时';
       case DioExceptionType.connectionError:
+        FaultLogService.instance.record(source: source, code: '网络', summary: '无法连接服务器');
         return '无法连接服务器（请检查网络或 Base URL）';
       case DioExceptionType.badCertificate:
+        FaultLogService.instance.record(source: source, code: '证书', summary: '证书校验失败');
         return '证书校验失败';
       case DioExceptionType.cancel:
         return '请求已取消';
       default:
-        return e.message ?? e.type.name;
+        FaultLogService.instance.record(source: source, code: '未知', summary: '${e.message ?? e.type.name}');
+        return '网络请求异常（${e.message ?? e.type.name}）';
     }
+  }
+
+  /// HTTP 状态码 → 中文说明（故障展示统一中文）
+  String _zhHttpMessage(int? code) {
+    switch (code) {
+      case 400:
+        return '请求参数有误';
+      case 401:
+        return '认证失败（API Key 无效或权限不足）';
+      case 403:
+        return '访问被拒绝（禁止访问，可能是限流或权限不足）';
+      case 404:
+        return '请求的资源不存在';
+      case 405:
+        return '请求方法不允许';
+      case 408:
+        return '请求超时';
+      case 409:
+        return '资源冲突';
+      case 422:
+        return '请求内容校验失败';
+      case 429:
+        return '请求过于频繁，已触发限流，请稍后再试';
+      case 500:
+        return '服务器内部错误';
+      case 502:
+        return '网关错误';
+      case 503:
+        return '服务暂不可用';
+      case 504:
+        return '网关超时';
+      default:
+        return code == null ? '未知错误' : 'HTTP 错误（$code）';
+    }
+  }
+
+  String _trimCn(String s) {
+    final t = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return t;
   }
 
   /// 尝试从响应体文本中提取 error.message
