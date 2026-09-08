@@ -184,3 +184,13 @@ rm -f android/upload-keystore.jks android/key.properties
 - **签名**：`feature/signing-config` 取 `upload-keystore.jks`+`key.properties`（不并入 main）。产物改名 `app-0.7.0.apk`，SHA-256 `dcc501c3...`。
 - **发布**：先 `git push` 源码到 `main`，再 `gh release create v0.7.0 --prerelease app-0.7.0.apk`（0.7.0 < 1.0.0 → Pre-Release）。
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.7.0.apk`，保持 `main` 干净。
+
+### v0.6.3（✅ 已成功编译并发布）
+- 版本：用户指定为小版本修复，回退到 `pubspec.yaml version: 0.6.3+17`；`settings_screen.dart` 底部文案与更新卡片均 `v0.6.3`。
+- **修复应用内更新"未发现任何已发布版本" bug**（`update_service.dart`）：
+  - 根因：`checkForUpdate`→`fetchLatest()` 默认 `includePrerelease:false`，会跳过所有 pre-release；而本项目版本号 < 1.0.0 一律发布为 Pre-Release，故更新检查永远选不中任何版本 → 抛"未找到任何已发布版本"。
+  - 修复：`checkForUpdate()` 改为 `fetchLatest(includePrerelease: true)`，命中最新 pre-release。
+- **构建**：`flutter build apk --release -PsigningEnabled`，Gradle 阶段约 **142.6s**（增量热缓存）。产物 **app-release.apk 68.4MB**。
+- **签名**：`feature/signing-config`（已 fetch 远端分支）取 `upload-keystore.jks`+`key.properties`（不并入 main）。产物改名 `app-0.6.3.apk`，SHA-256 `f101ac9c...`。
+- **发布**：先 `git push` 源码到 `main`，再 `gh release create v0.6.3 --prerelease app-0.6.3.apk`（0.6.3 < 1.0.0 → Pre-Release）。
+- 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.6.3.apk`，保持 `main` 干净。

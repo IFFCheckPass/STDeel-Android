@@ -210,8 +210,12 @@ class UpdateService {
 
   /// 检查是否有可用更新。
   /// @return 有更新返回 [AppUpdateInfo]；无返回 null（抛错则说明无法检查）。
+  ///
+  /// 本项目版本号 < 1.0.0，一律发布为 Pre-Release（见 AGENTS.md 版本发布规则），
+  /// 因此必须 `includePrerelease:true`，否则默认会跳过所有 pre-release，
+  /// 导致"未发现任何已发布版本"的假阴性。
   Future<AppUpdateInfo?> checkForUpdate() async {
-    final latest = await fetchLatest();
+    final latest = await fetchLatest(includePrerelease: true);
     final current = await currentVersion();
     if (compareVersions(latest.version, current) <= 0) return null;
     return latest;

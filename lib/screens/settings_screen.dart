@@ -594,7 +594,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const Spacer(),
                     Text(
-                      '版本 v0.7.0',
+                      '版本 v0.6.3',
                       style: TextStyle(fontSize: 12, color: G.textSecondary),
                     ),
                   ],
@@ -722,7 +722,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           Center(
             child: Text(
-              '思谛 STDeel · v0.7.0',
+              '思谛 STDeel · v0.6.3',
               style: TextStyle(fontSize: 11, color: G.textFaint),
             ),
           ),
