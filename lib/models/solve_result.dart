@@ -6,33 +6,39 @@ import 'dart:convert';
 /// AI 返回的单道题结果
 class QuestionResult {
   QuestionResult({
-    required this.id,
+    int id = 0,
+    int sessionNo = 0,
     required this.content,
     List<String>? knowledgePoints,
     this.answer = '',
     this.solution = '',
     this.confidence = 0.0,
     this.subject = '未分类',
-  }) : knowledgePoints = knowledgePoints ?? const [];
+  })  : this.id = id,
+        sessionNo = sessionNo <= 0 ? (id > 0 ? id : 0) : sessionNo,
+        knowledgePoints = knowledgePoints ?? const [];
 
-  factory QuestionResult.fromJson(Map<String, dynamic> json) =>
-      QuestionResult(
-        id: json['id'] is num ? (json['id'] as num).toInt() : 0,
-        content: json['content']?.toString() ?? '',
-        knowledgePoints: json['knowledge_points'] is List
-            ? (json['knowledge_points'] as List)
-                .map((e) => e.toString())
-                .toList()
-            : const [],
-        answer: json['answer']?.toString() ?? '',
-        solution: json['solution']?.toString() ?? '',
-        confidence: json['confidence'] is num
-            ? (json['confidence'] as num).toDouble()
-            : 0.0,
-        subject: json['subject']?.toString().trim().isNotEmpty == true
-            ? json['subject'].toString().trim()
-            : '未分类',
-      );
+  factory QuestionResult.fromJson(Map<String, dynamic> json) {
+    final sessionNo = json['id'] is num ? (json['id'] as num).toInt() : 0;
+    return QuestionResult(
+      id: sessionNo,
+      sessionNo: sessionNo,
+      content: json['content']?.toString() ?? '',
+      knowledgePoints: json['knowledge_points'] is List
+          ? (json['knowledge_points'] as List)
+              .map((e) => e.toString())
+              .toList()
+          : const [],
+      answer: json['answer']?.toString() ?? '',
+      solution: json['solution']?.toString() ?? '',
+      confidence: json['confidence'] is num
+          ? (json['confidence'] as num).toDouble()
+          : 0.0,
+      subject: json['subject']?.toString().trim().isNotEmpty == true
+          ? json['subject'].toString().trim()
+          : '未分类',
+    );
+  }
 
   final String content;
   final List<String> knowledgePoints;
@@ -44,8 +50,12 @@ class QuestionResult {
   String subject;
 
   /// 记录 ID：AI 返回阶段通常为 0；解题被持久化后写回漂移(drift)主键，
-  /// 供重答/疑问/反馈命中同一历史记录。
+  /// 供重答/疑问/反馈命中同一历史记录。相当于全局"解过的题"的序号。
   int id;
+
+  /// 当次解题的题号（AI 按图内顺序返回 1、2、3…），供用户界面醒目展示。
+  /// 与 [id]（内部全局序号）区分开。
+  int sessionNo;
 
   Map<String, dynamic> toJson() => {
         'id': id,

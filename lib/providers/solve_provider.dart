@@ -172,8 +172,13 @@ class SolveProvider extends ChangeNotifier {
       );
     } else if (event is AiDone) {
       sw.stop();
+      // 兜底：AI 未给题号时，按返回顺序编号作为"当次解题题号"。
+      final qs = event.result.questions;
+      for (var i = 0; i < qs.length; i++) {
+        if (qs[i].sessionNo <= 0) qs[i].sessionNo = i + 1;
+      }
       final result = SolveResult(
-        questions: event.result.questions,
+        questions: qs,
         aiModel: event.result.aiModel,
         latencyMs: event.result.latencyMs,
         tokensUsed: event.result.tokensUsed,
@@ -334,6 +339,8 @@ class SolveProvider extends ChangeNotifier {
     String actionType = 'retry',
     bool overwriteRecord = true,
     String? imagePath,
+    bool attachImage = true,
+    int sessionNoOverride = 0,
   }) async {
     if (models.isEmpty) {
       _state = const SolveUiState(
@@ -349,22 +356,25 @@ class SolveProvider extends ChangeNotifier {
     );
     notifyListeners();
 
-    // 解析重答要携带的图片：优先显式传入；否则从记录取回缓存图。
+    // 解析要携带的图片：仅当 attachImage 为 true 时才发送图片。
+    // 重答场景不再整图重发，以避免含多题的图片被 AI 全部重答。
     String? base64Image;
-    var imagePathToUse = imagePath;
-    final plain = File(imagePathToUse ?? '');
-    if (imagePathToUse != null &&
-        imagePathToUse.isNotEmpty &&
-        await plain.exists()) {
-      final bytes = await plain.readAsBytes();
-      base64Image = base64Encode(bytes);
-    } else if (questionId > 0) {
-      final rec = await _db.solveRecordDao.getById(questionId);
-      if (rec != null && rec.imagePath.isNotEmpty) {
-        final f = File(rec.imagePath);
-        if (await f.exists()) {
-          imagePathToUse = rec.imagePath;
-          base64Image = base64Encode(await f.readAsBytes());
+    if (attachImage) {
+      var imagePathToUse = imagePath;
+      final plain = File(imagePathToUse ?? '');
+      if (imagePathToUse != null &&
+          imagePathToUse.isNotEmpty &&
+          await plain.exists()) {
+        final bytes = await plain.readAsBytes();
+        base64Image = base64Encode(bytes);
+      } else if (questionId > 0) {
+        final rec = await _db.solveRecordDao.getById(questionId);
+        if (rec != null && rec.imagePath.isNotEmpty) {
+          final f = File(rec.imagePath);
+          if (await f.exists()) {
+            imagePathToUse = rec.imagePath;
+            base64Image = base64Encode(await f.readAsBytes());
+          }
         }
       }
     }
@@ -386,15 +396,19 @@ class SolveProvider extends ChangeNotifier {
           result: event.result,
           currentModel: event.result.aiModel,
         );
-        if (q != null && overwriteRecord) {
-          // 优先用调用方给定的 questionId（除非它 <= 0，则回退 AI 返回的 id）
-          final effectiveId = questionId > 0 ? questionId : q.id;
-          await _commitTextResult(
-            q,
-            event.result,
-            dbId: effectiveId,
-            actionType: actionType,
-          );
+        if (q != null) {
+          // 重答/疑问等单题结果：沿用原题号，保证"当次解题题号"不丢失
+          if (sessionNoOverride > 0) q.sessionNo = sessionNoOverride;
+          if (overwriteRecord) {
+            // 优先用调用方给定的 questionId（除非它 <= 0，则回退 AI 返回的 id）
+            final effectiveId = questionId > 0 ? questionId : q.id;
+            await _commitTextResult(
+              q,
+              event.result,
+              dbId: effectiveId,
+              actionType: actionType,
+            );
+          }
         }
         notifyListeners();
         return;
@@ -449,22 +463,31 @@ class SolveProvider extends ChangeNotifier {
     }
   }
 
-  /// "重答"按钮：以高温度重调 AI 覆盖答案；同时携带原图保证题干选项/图表完整。
+  /// "重答"按钮：仅针对该道题用纯文本重调 AI 覆盖答案，不重发整张图片，
+  /// 避免含多题的图片被 AI 全部重答。
   Future<void> retry({
     required int questionId,
     required String questionText,
     required List<AiModelConfig> models,
     int thinkTimeout = 20,
     String? imagePath,
+    int sessionNoOverride = 0,
   }) =>
       _solveText(
-        userPrompt: '请重新解答以下题目，给出新的答案与解答：\n$questionText',
+        // 不再整图重发：仅针对这一道题重新解答，明确要求只输出该题结果，
+        // 避免图片含多题时 AI 把所有题目全部重答一遍。
+        userPrompt:
+            '请仅仅针对下面这一道题重新解答，给出新的答案与详细解答。'
+            '只输出这一道题的结果，把该题单独放入 questions 数组返回；'
+            '不要尝试解答、也不要返回该题所属试卷/图片中的其他任何题目。\n\n'
+            '题目如下：\n$questionText',
         questionId: questionId,
         models: models,
         thinkTimeout: thinkTimeout,
         startLabel: '重答中',
         actionType: 'retry',
-        imagePath: imagePath,
+        attachImage: false,
+        sessionNoOverride: sessionNoOverride,
       );
 
   /// "疑问"按钮：附加详细分步指令；同样携带原图。
@@ -474,6 +497,7 @@ class SolveProvider extends ChangeNotifier {
     required List<AiModelConfig> models,
     int thinkTimeout = 20,
     String? imagePath,
+    int sessionNoOverride = 0,
   }) =>
       _solveText(
         userPrompt: '$questionText${AiConfig.detailedSolutionSuffix}',
@@ -483,6 +507,7 @@ class SolveProvider extends ChangeNotifier {
         startLabel: '解答中',
         actionType: 'detail',
         imagePath: imagePath,
+        sessionNoOverride: sessionNoOverride,
       );
 
   /// 计算题目哈希（与本地答案库一致）

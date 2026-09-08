@@ -168,3 +168,19 @@ rm -f android/upload-keystore.jks android/key.properties
 - **发布**：先 `git push` 到 `main`（commit `7b49239`），再 `gh release create v0.6.2 --prerelease ... /tmp/app-0.6.2.apk`（0.6.2 < 1.0.0 → Pre-Release）。产物 SHA-256 `c43e59ae...`。
   - 链接：https://github.com/IFFCheckPass/STDeel-Android/releases/tag/v0.6.2
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.6.2.apk`，保持 `main` 干净。
+
+### v0.7.0（✅ 已成功编译并发布）
+- 版本：`pubspec.yaml version: 0.7.0+16`；`settings_screen.dart` 底部文案 `v0.7.0`（含更新卡片 "版本 v0.7.0"）。
+- **功能**：
+  1. **重答不再整图重发**（`solve_provider.dart`）：`_solveText` 新增 `attachImage` 参数；`retry` 传 `attachImage:false` 并改写 user prompt——明确要求"仅针对给定的一道题重答，只把该题放入 questions，不得涉及图中其他题"，避免含多题图片被 AI 全部重答。疑问（`askDetailed`）仍携带原图。
+  2. **知识点雷达图聚合 + AI 整理**（`knowledge_screen.dart`）：雷达图按大类聚合（从知识点名剥离 `与/和/及/、` 等取粗分类），最多 8 个轴、其余并入"其他"，缓解细分点过多看不清；页面顶部新增「AI 整理」按钮，用 `AiService.generateRaw` 批量把所有知识点归类学科并写库（`KnowledgeDao.setSubject`），省去手动归类存量。
+  3. **当次解题题号 vs 内部序号**（`solve_result.dart` 新增 `sessionNo`、`answer_card.dart`）：首解按 `qs[i].sessionNo = i+1` 兜底赋当次题号；卡片顶部醒目标识「第 N 题」，内部全局序号 `记录 #id` 移到右上角（题号不等时展示）。重答/疑问通过 `sessionNoOverride` 沿用原题号，不丢。
+  4. **故障码 429 带模型组合信息 + 展开查看**（`ai_service.dart`/`failover_manager.dart`/`settings_screen.dart`）：`_runStream`/`_dioErrorText` 透传 `comboIndex` 与 `model`，429 记录追加「模型组合N：host · model」，便于定位限流是哪家；设置页故障码默认仅显示 2 条，超 2 条出现「展开全部（共 N 条）」切换。
+- **环境/构建备注（本沙箱）**：`/opt/android` 仅装 platform-36。`file_picker` 在 `pub.dev` 缓存副本固定 `compileSdk 34`，且 license 文件 hash 被误写成无效值 → Gradle 报 `License for package Android SDK Platform 34 not accepted`。处理：
+  - 修正 license：`printf '8933bad161...26c55\nd56f518747...a6481e\n24333f8a63...1fee\n' > /opt/android/licenses/android-sdk-license`（标准三 hash）。
+  - `sed -i 's/compileSdk 34/compileSdk 36/' /root/.pub-cache/hosted/pub.dev/file_picker-8.3.7/android/build.gradle`。
+  - license 修正后 Gradle 自动在线安装 platform-34/35（revision 3/2）完成编译。
+- **构建**：`flutter build apk --release -PsigningEnabled`，两次失败（license/file_picker）后第三次 Gradle 阶段约 **473s** 成功。产物 **app-release.apk 68.4MB**。
+- **签名**：`feature/signing-config` 取 `upload-keystore.jks`+`key.properties`（不并入 main）。产物改名 `app-0.7.0.apk`，SHA-256 `dcc501c3...`。
+- **发布**：先 `git push` 源码到 `main`，再 `gh release create v0.7.0 --prerelease app-0.7.0.apk`（0.7.0 < 1.0.0 → Pre-Release）。
+- 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.7.0.apk`，保持 `main` 干净。

@@ -149,17 +149,42 @@ class AnswerCard extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context) {
+    final hasSessionNo = question.sessionNo > 0;
+    final showInternalId = question.id > 0 && question.id != question.sessionNo;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 题目内容
-        Text(
-          '题目 ${question.id > 0 ? '#${question.id} ' : ''}',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: G.textFaint,
+        // 顶部：当次解题题号醒目标识 + 右上角内部全局序号(#x)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [G.accent.withOpacity(0.25), G.accentDeep.withOpacity(0.25)],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: G.accent.withOpacity(0.6)),
               ),
+              child: Text(
+                hasSessionNo ? '第 ${question.sessionNo} 题' : '题目',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: G.accentFg,
+                ),
+              ),
+            ),
+            const Spacer(),
+            if (showInternalId)
+              Text(
+                '记录 #${question.id}',
+                style: TextStyle(fontSize: 11, color: G.textFaint),
+              ),
+          ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         LatexRenderer(text: question.content),
         const SizedBox(height: 8),
         // 知识点标签

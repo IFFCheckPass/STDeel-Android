@@ -94,6 +94,7 @@ class FailoverManager {
           base64Image: base64Image,
           userPrompt: userPrompt,
           thinkTimeoutSeconds: thinkTimeoutSeconds,
+          comboIndex: i,
         );
         if (ok) {
           done = true;
@@ -142,6 +143,7 @@ class FailoverManager {
     required String? base64Image,
     required String userPrompt,
     required int thinkTimeoutSeconds,
+    required int comboIndex,
   }) async {
     final subCompleter = Completer<(bool, String?)>();
     String? failureReason;
@@ -152,6 +154,7 @@ class FailoverManager {
       base64Image: base64Image,
       userPrompt: userPrompt,
       thinkTimeoutSeconds: thinkTimeoutSeconds,
+      comboIndex: comboIndex,
     ).listen(
       (event) {
         if (event is AiFailed) {

@@ -80,6 +80,7 @@ class AiService {
     required String? base64Image,
     String userPrompt = '',
     int thinkTimeoutSeconds = 20,
+    int comboIndex = 0,
   }) {
     final controller = StreamController<AiStreamEvent>();
     final stopWatch = Stopwatch()..start();
@@ -91,6 +92,7 @@ class AiService {
       userPrompt: userPrompt,
       thinkTimeoutSeconds: thinkTimeoutSeconds,
       stopWatch: stopWatch,
+      comboIndex: comboIndex,
     ).whenComplete(() {
       if (!controller.isClosed) controller.close();
     });
@@ -105,6 +107,7 @@ class AiService {
     required String userPrompt,
     required int thinkTimeoutSeconds,
     required Stopwatch stopWatch,
+    int comboIndex = 0,
   }) async {
     final url = '${model.endpoint}/chat/completions';
     final messages = <Map<String, dynamic>>[
@@ -176,7 +179,8 @@ class AiService {
     } on DioException catch (e) {
       thinkTimer.cancel();
       if (completer.isCompleted) return; // think 超时已处理
-      fail('请求失败（${model.name}）: ${await _dioErrorText(e)}');
+      fail('请求失败（${model.name}）: '
+          '${await _dioErrorText(e, comboIndex: comboIndex, model: model)}');
       return;
     } catch (e) {
       thinkTimer.cancel();
@@ -312,7 +316,12 @@ class AiService {
 
   /// 从 DioException 中提取可读的错误信息（含 HTTP 状态码与响应体）。
   /// 始终返回中文文案；同时记录一条故障码到 [FaultLogService]，便于在设置页查看/复制。
-  Future<String> _dioErrorText(DioException e, {String source = 'AI 调用'}) async {
+  Future<String> _dioErrorText(
+    DioException e, {
+    String source = 'AI 调用',
+    int comboIndex = 0,
+    AiModelConfig? model,
+  }) async {
     final resp = e.response;
     if (resp != null) {
       var msg = 'HTTP ${resp.statusCode}';
@@ -332,13 +341,19 @@ class AiService {
       }
       // 记录故障码，供设置页展示/复制；文案统一为中文。
       final cn = _zhHttpMessage(resp.statusCode);
+      // 429 额外带上模型组合序号、供应商与模型名，便于用户直观定位是哪家限流。
+      final comboContext = _comboContext(comboIndex: comboIndex, model: model);
       FaultLogService.instance.record(
         source: source,
         code: '${resp.statusCode}',
-        summary: _trimCn(cn + (resp.statusCode == 404 &&
-                (msg.contains('api.github.com') || msg.contains('github'))
-            ? '（GitHub 资源/版本不存在或已被限制访问）'
-            : '')),
+        summary: _trimCn(cn +
+            (resp.statusCode == 404 &&
+                    (msg.contains('api.github.com') || msg.contains('github'))
+                ? '（GitHub 资源/版本不存在或已被限制访问）'
+                : '') +
+            (resp.statusCode == 429 && comboContext.isNotEmpty
+                ? '（$comboContext）'
+                : '')),
       );
       if (resp.statusCode == 404 || resp.statusCode == 403 || resp.statusCode == 429) {
         return 'HTTP ${resp.statusCode} $cn';
@@ -402,6 +417,22 @@ class AiService {
   String _trimCn(String s) {
     final t = s.replaceAll(RegExp(r'\s+'), ' ').trim();
     return t;
+  }
+
+  /// 构造 429 限流记录中的"模型组合"说明，便于用户在故障码记录中直观
+  /// 看到是哪家供应商的哪个模型限流。model 为空（非组合流式调用）时返回
+  /// 空串，不影响其他来源的故障码记录。
+  String _comboContext({required int comboIndex, AiModelConfig? model}) {
+    if (model == null) return '';
+    final idx = comboIndex + 1;
+    String host;
+    try {
+      final u = Uri.parse(model.endpoint);
+      host = u.host.isNotEmpty ? u.host : model.endpoint;
+    } catch (_) {
+      host = model.endpoint;
+    }
+    return '模型组合$idx：$host · ${model.model}';
   }
 
   /// 尝试从响应体文本中提取 error.message

@@ -34,6 +34,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _initialized = false;
   // 首次异步加载完成后只回填一次输入框，避免与用户正在输入冲突。
   bool _didInitialSync = false;
+  // 故障码记录是否展开显示全部（默认仅显示两条）
+  bool _faultLogExpanded = false;
   // 图片缓存统计
   ImageCacheStats? _cacheStats;
 
@@ -592,7 +594,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const Spacer(),
                     Text(
-                      '版本 v0.6.2',
+                      '版本 v0.7.0',
                       style: TextStyle(fontSize: 12, color: G.textSecondary),
                     ),
                   ],
@@ -653,18 +655,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final log in logs.take(8)) ...[
+                        for (final log in logs
+                            .take(_faultLogExpanded ? logs.length : 2)) ...[
                           _FaultLogTile(log: log),
-                          if (log != logs.take(8).last)
+                          if (log !=
+                              logs
+                                  .take(_faultLogExpanded ? logs.length : 2)
+                                  .last)
                             Divider(height: 1, color: G.glassBorder.withOpacity(0.4)),
                         ],
-                        if (logs.length > 8)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              '共 ${logs.length} 条，仅显示最近 8 条',
-                              style: TextStyle(
-                                  fontSize: 11, color: G.textFaint),
+                        if (logs.length > 2)
+                          InkWell(
+                            onTap: () => setState(
+                                () => _faultLogExpanded = !_faultLogExpanded),
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _faultLogExpanded
+                                        ? '收起'
+                                        : '展开全部（共 ${logs.length} 条）',
+                                    style: TextStyle(
+                                        fontSize: 12, color: G.accent),
+                                  ),
+                                  Icon(
+                                    _faultLogExpanded
+                                        ? Icons.keyboard_arrow_up_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
+                                    size: 18,
+                                    color: G.accent,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                       ],
@@ -698,7 +722,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           Center(
             child: Text(
-              '思谛 STDeel · v0.6.2',
+              '思谛 STDeel · v0.7.0',
               style: TextStyle(fontSize: 11, color: G.textFaint),
             ),
           ),

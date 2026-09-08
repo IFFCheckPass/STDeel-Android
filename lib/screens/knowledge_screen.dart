@@ -6,6 +6,8 @@
 /// - "举一反三"按钮：AI 生成同类变式题
 library;
 
+import 'dart:convert';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +16,7 @@ import '../data/database.dart';
 import '../models/knowledge_point.dart';
 import '../providers/settings_provider.dart';
 import '../providers/solve_provider.dart';
+import '../services/ai_service.dart';
 import '../widgets/glass.dart';
 
 class KnowledgeScreen extends StatefulWidget {
@@ -28,6 +31,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   bool _loading = true;
   // null 表示"全部学科"；否则按所选学科过滤
   String? _selectedSubject;
+  // AI 一键整理是否进行中
+  bool _organizing = false;
 
   @override
   void initState() {
@@ -85,7 +90,30 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         children: [
           const Text('知识点掌握度雷达图',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '已按大类聚合展示，细分知识点见下方列表',
+                  style: TextStyle(fontSize: 11, color: G.textFaint),
+                ),
+              ),
+              _organizing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : TextButton.icon(
+                      onPressed: () => _aiOrganize(context, _points),
+                      icon: const Icon(Icons.auto_fix_high_outlined, size: 18),
+                      style: TextButton.styleFrom(foregroundColor: G.accent),
+                      label: const Text('AI 整理'),
+                    ),
+            ],
+          ),
+          const SizedBox(height: 8),
           // 学科筛选
           if (_subjects.isNotEmpty) ...[
             SizedBox(
@@ -149,7 +177,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   }
 
   Widget _buildRadarChart(BuildContext context, List<KnowledgePoint> source) {
-    final n = source.length;
+    final cats = _aggregateCategories(source);
+    final n = cats.length;
     if (n < 3) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -161,7 +190,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         child: const Text('至少需要 3 个知识点才能绘制雷达图'),
       );
     }
-    final values = source.map((p) => p.accuracy * 4).toList();
+    final values = cats.map((c) => c.accuracy * 4).toList();
     return SizedBox(
       height: 240,
       child: RadarChart(RadarChartData(
@@ -173,14 +202,135 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           )
         ],
         titleTextStyle: TextStyle(fontSize: 11, color: G.textSecondary),
-        getTitle: (idx, angle) =>
-            RadarChartTitle(text: source[idx % n].name),
+        getTitle: (idx, angle) => RadarChartTitle(text: cats[idx % n].name),
         tickCount: 4,
         ticksTextStyle: TextStyle(fontSize: 9, color: G.textFaint),
         gridBorderData: BorderSide(color: G.glassBorder),
         radarBackgroundColor: Colors.transparent,
       )),
     );
+  }
+
+  /// 单个细分知识点的粗分类归属。
+  ///
+  /// 尽量从名字里剥离常见连词（与/和/及/、等），取更粗的"大类"；
+  /// 无连词时整体作为一个大类。用于把雷达图从"逐点"收敛为"按大类"，
+  /// 缓解细分小知识点过多导致看不清的问题。
+  static const _boundaryChars = ['与', '和', '及', '、', '，', ',', '/', '·', '｜', '：', ':', '－'];
+
+  String _categoryOf(String name) {
+    final t = name.trim();
+    if (t.isEmpty) return t;
+    for (final ch in _boundaryChars) {
+      final i = t.indexOf(ch);
+      if (i > 0) {
+        final seg = t.substring(0, i).trim();
+        if (seg.isNotEmpty) return seg;
+      }
+    }
+    return t;
+  }
+
+  /// 把知识点按大类聚合并截断（保留前 [maxAxes] 个大类，其余并入"其他"），
+  /// 使雷达图可读，不再因细分点过多而杂乱。
+  static const int _maxAxes = 8;
+
+  List<_RadarCategory> _aggregateCategories(List<KnowledgePoint> points) {
+    final merged = <String, _RadarCategory>{};
+    for (final p in points) {
+      final cat = _categoryOf(p.name);
+      merged.putIfAbsent(cat, () => _RadarCategory(cat)).add(p);
+    }
+    var list = merged.values.toList()
+      ..sort((a, b) => b.totalCount.compareTo(a.totalCount));
+    if (list.length > _maxAxes) {
+      final kept = list.sublist(0, _maxAxes - 1);
+      final rest = list.sublist(_maxAxes - 1);
+      final other = _RadarCategory('其他');
+      for (final r in rest) {
+        other.correctCount += r.correctCount;
+        other.wrongCount += r.wrongCount;
+      }
+      list = [...kept, other];
+    }
+    return list;
+  }
+
+  /// AI 一键整理：把所有已有知识点批量交给 AI 归类到学科，
+  /// 自动写入数据库，避免手动逐个分类存量内容。
+  Future<void> _aiOrganize(
+      BuildContext context, List<KnowledgePoint> points) async {
+    if (_organizing) return;
+    if (points.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('暂无可整理的知识点')),
+      );
+      return;
+    }
+    final settings = context.read<SettingsProvider>();
+    final models = settings.buildModelChain();
+    if (models.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先到「设置 → AI 模型组合」配置可用模型')),
+      );
+      return;
+    }
+    setState(() => _organizing = true);
+    final ai = context.read<AiService>();
+    final names = points.map((p) => p.name).toList();
+    final subjectPrompt =
+        '你是一个学科知识整理助手。下面是用户在学习积累中的所有知识点标签。'
+        '\n请把【每一个】知识点归类到最合适的学科。'
+        '学科取值限定为：数学、语文、英语、物理、化学、生物、历史、地理、政治、其他；'
+        '无法判断时用"未分类"。'
+        '\n只返回 JSON，不得输出任何解释文字，格式如下：'
+        '\n{"assignments":[{"point":"原始知识点名称","subject":"学科"}]}'
+        '\nassignments 必须覆盖下面列出的每一个知识点，不要遗漏。'
+        '\n\n知识点列表：\n${names.map((n) => '- $n').join('\n')}';
+    try {
+      final jsonText = await ai.generateRaw(
+        model: models.first,
+        userText: subjectPrompt,
+        temperature: 0.1,
+      );
+      // 从返回文本中截取 JSON 对象；若带围栏/前导文字则由 _extractJsonObject 兜底。
+      final jsonStr = _extractJsonObject(jsonText) ?? jsonText;
+      final obj = jsonDecode(jsonStr);
+      final assignments = (obj as Map)['assignments'] as List<dynamic>? ?? [];
+      final db = context.read<AppDatabase>();
+      final byName = {for (final p in points) p.name: p};
+      var applied = 0;
+      for (final a in assignments) {
+        if (a is! Map) continue;
+        final point = (a['point'] ?? '').toString().trim();
+        final subject = (a['subject'] ?? '').toString().trim();
+        if (point.isEmpty || subject.isEmpty) continue;
+        final cur = byName[point];
+        if (cur == null || cur.subject == subject) continue;
+        await db.knowledgeDao.setSubject(point, subject);
+        applied++;
+      }
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(applied > 0 ? 'AI 整理完成，归类了 $applied 个知识点' : 'AI 整理完成，未发现需要调整的归类')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('AI 整理失败：$e'), backgroundColor: G.coral),
+      );
+    } finally {
+      if (mounted) setState(() => _organizing = false);
+    }
+  }
+
+  /// 从 AI 返回文本中截取第一个 JSON 对象，容忍 markdown 围栏/说明文字。
+  String? _extractJsonObject(String text) {
+    final start = text.indexOf('{');
+    final end = text.lastIndexOf('}');
+    if (start < 0 || end <= start) return null;
+    return text.substring(start, end + 1);
   }
 
   Widget _buildPointRow(BuildContext context, KnowledgePoint p) {
@@ -350,5 +500,23 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     if (solve.state.status == SolveStatus.done) {
       Navigator.of(context).pushNamed('/answer');
     }
+  }
+}
+
+/// 雷达图用的大类聚合对象（汇总其下细分知识点的正确/错误次数）。
+class _RadarCategory {
+  _RadarCategory(this.name);
+
+  final String name;
+  int correctCount = 0;
+  int wrongCount = 0;
+
+  int get totalCount => correctCount + wrongCount;
+
+  double get accuracy => totalCount == 0 ? 0 : correctCount / totalCount;
+
+  void add(KnowledgePoint p) {
+    correctCount += p.correctCount;
+    wrongCount += p.wrongCount;
   }
 }
