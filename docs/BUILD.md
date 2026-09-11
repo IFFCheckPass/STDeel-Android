@@ -170,19 +170,25 @@ rm -f android/upload-keystore.jks android/key.properties
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.6.2.apk`，保持 `main` 干净。
 
 ### v0.7.0（✅ 已成功编译并发布）
-- 版本：`pubspec.yaml version: 0.7.0+16`；`settings_screen.dart` 底部文案 `v0.7.0`（含更新卡片 "版本 v0.7.0"）。
+- 版本：`pubspec.yaml version: 0.7.0+17`；`settings_screen.dart` 底部文案与更新卡片均 `v0.7.0`。
 - **功能**：
-  1. **重答不再整图重发**（`solve_provider.dart`）：`_solveText` 新增 `attachImage` 参数；`retry` 传 `attachImage:false` 并改写 user prompt——明确要求"仅针对给定的一道题重答，只把该题放入 questions，不得涉及图中其他题"，避免含多题图片被 AI 全部重答。疑问（`askDetailed`）仍携带原图。
-  2. **知识点雷达图聚合 + AI 整理**（`knowledge_screen.dart`）：雷达图按大类聚合（从知识点名剥离 `与/和/及/、` 等取粗分类），最多 8 个轴、其余并入"其他"，缓解细分点过多看不清；页面顶部新增「AI 整理」按钮，用 `AiService.generateRaw` 批量把所有知识点归类学科并写库（`KnowledgeDao.setSubject`），省去手动归类存量。
-  3. **当次解题题号 vs 内部序号**（`solve_result.dart` 新增 `sessionNo`、`answer_card.dart`）：首解按 `qs[i].sessionNo = i+1` 兜底赋当次题号；卡片顶部醒目标识「第 N 题」，内部全局序号 `记录 #id` 移到右上角（题号不等时展示）。重答/疑问通过 `sessionNoOverride` 沿用原题号，不丢。
-  4. **故障码 429 带模型组合信息 + 展开查看**（`ai_service.dart`/`failover_manager.dart`/`settings_screen.dart`）：`_runStream`/`_dioErrorText` 透传 `comboIndex` 与 `model`，429 记录追加「模型组合N：host · model」，便于定位限流是哪家；设置页故障码默认仅显示 2 条，超 2 条出现「展开全部（共 N 条）」切换。
-- **环境/构建备注（本沙箱）**：`/opt/android` 仅装 platform-36。`file_picker` 在 `pub.dev` 缓存副本固定 `compileSdk 34`，且 license 文件 hash 被误写成无效值 → Gradle 报 `License for package Android SDK Platform 34 not accepted`。处理：
-  - 修正 license：`printf '8933bad161...26c55\nd56f518747...a6481e\n24333f8a63...1fee\n' > /opt/android/licenses/android-sdk-license`（标准三 hash）。
-  - `sed -i 's/compileSdk 34/compileSdk 36/' /root/.pub-cache/hosted/pub.dev/file_picker-8.3.7/android/build.gradle`。
-  - license 修正后 Gradle 自动在线安装 platform-34/35（revision 3/2）完成编译。
-- **构建**：`flutter build apk --release -PsigningEnabled`，两次失败（license/file_picker）后第三次 Gradle 阶段约 **473s** 成功。产物 **app-release.apk 68.4MB**。
-- **签名**：`feature/signing-config` 取 `upload-keystore.jks`+`key.properties`（不并入 main）。产物改名 `app-0.7.0.apk`，SHA-256 `dcc501c3...`。
-- **发布**：先 `git push` 源码到 `main`，再 `gh release create v0.7.0 --prerelease app-0.7.0.apk`（0.7.0 < 1.0.0 → Pre-Release）。
+  1. **答案库"卷次+题号"认领**（schema v7：新增 `answer_papers` 表，`answer_library` 加 `paper_id`/`question_no`，无题干条目 question_text/hash 允许为空）——解决教辅/往年卷子答案只有题号无题干的匹配问题；导入答案册时弹窗命名卷次，按"卷次+题号"入库。
+  2. **解题流程优化**（`solve_provider.dart`）：轻量拆题 → 卷次识别/逐题匹配 → 未命中才调用 AI 解题，减少 token 消耗。
+  3. **数据同步修复**（B1-B4）：上传解析后端 id 写回 `remoteId`（`backend_api.uploadSolveRecord`/`solve_record_dao.setRemoteId`）、反馈与删除改用 `remoteId`、下拉同步反馈缺省值处理。
+  4. **重答不再整图重发**：`_solveText` 新增 `attachImage` 参数，`retry` 传 `attachImage:false`。
+  5. **知识点雷达图聚合 + AI 整理**（`knowledge_screen.dart`）。
+  6. **当次解题题号 vs 内部序号**：`solve_result.dart` 新增 `sessionNo`。
+  7. **故障码 429 带模型组合信息**（`ai_service.dart`/`failover_manager.dart`）。
+- **环境/构建备注（本沙箱）**：
+  - 本次 `/opt/android` 仅有 platforms 35/36，Gradle 自动在线安装 platform-34（revision 3）完成编译。
+  - **⚠️ file_picker compileSdk 34 不匹配**：报 `:file_picker:checkReleaseAarMetadata — flutter_plugin_android_lifecycle 要求依赖方 compileSdk>=36`。根 build.gradle.kts 的 `subprojects` 强制方案无效（`Cannot run afterEvaluate when already evaluated` / 插件自带 `compileSdk 34` 会覆盖），**有效方案仍是直接改 pub-cache 插件源码**：
+    ```bash
+    sed -i 's/compileSdk 34/compileSdk 36/' /root/.pub-cache/hosted/pub.dev/file_picker-8.3.7/android/build.gradle
+    ```
+- **构建**：`flutter build apk --release -PsigningEnabled`，两次失败（file_picker compileSdk）后第三次 Gradle 阶段约 **197.6s** 成功。产物 **app-release.apk 68.6MB**。
+- **签名**：`feature/signing-config` 取 `upload-keystore.jks`+`key.properties`（不并入 main）。产物改名 `app-0.7.0.apk`，SHA-256 `9e3c4eed6a281e7f80a2cfa2069424bace0ee4f35377e3164b70f19cdec4b9ad`。
+- **发布**：`gh release create v0.7.0 --prerelease ... app-0.7.0.apk`（0.7.0 < 1.0.0 → Pre-Release）。
+  - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.0
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.7.0.apk`，保持 `main` 干净。
 
 ### v0.6.3（✅ 已成功编译并发布）
