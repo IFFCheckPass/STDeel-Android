@@ -14,6 +14,7 @@ class QuestionResult {
     this.solution = '',
     this.confidence = 0.0,
     this.subject = '未分类',
+    this.questionNo = 0,
   })  : this.id = id,
         sessionNo = sessionNo <= 0 ? (id > 0 ? id : 0) : sessionNo,
         knowledgePoints = knowledgePoints ?? const [];
@@ -23,6 +24,9 @@ class QuestionResult {
     return QuestionResult(
       id: sessionNo,
       sessionNo: sessionNo,
+      questionNo: json['question_no'] is num
+          ? (json['question_no'] as num).toInt()
+          : 0,
       content: json['content']?.toString() ?? '',
       knowledgePoints: json['knowledge_points'] is List
           ? (json['knowledge_points'] as List)
@@ -57,6 +61,10 @@ class QuestionResult {
   /// 与 [id]（内部全局序号）区分开。
   int sessionNo;
 
+  /// 卷内题号（答案册条目用）：文档拆分/拆题时 AI 返回的题号，
+  /// 用于"卷次+题号"认领答案册中的无题干条目。0 表示未知。
+  final int questionNo;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'content': content,
@@ -65,6 +73,7 @@ class QuestionResult {
         'solution': solution,
         'confidence': confidence,
         'subject': subject,
+        'question_no': questionNo,
       };
 }
 

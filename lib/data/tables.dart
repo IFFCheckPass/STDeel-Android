@@ -47,11 +47,20 @@ class SolveRecords extends Table {
 /// 本地答案库缓存表
 ///
 /// 同步自后端答案库；新上传的标准答案也写入本地。
+/// 支持两类条目：
+///   - 完整条目：questionText + questionHash 非空，供题干精确匹配；
+///   - 无题干条目：questionText / questionHash 为空，仅含 [paperId] + [questionNo]
+///     （教辅/往年卷答案册通常只有题号+答案，无原题），供"卷次+题号"认领匹配。
+///     命中反哺后会补全 questionText / questionHash，升级为完整条目。
 @DataClassName('AnswerLibraryEntity')
 class AnswerLibrary extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get questionText => text()();
-  TextColumn get questionHash => text()(); // sha256，精确匹配用
+  TextColumn get questionText =>
+      text().withDefault(const Constant(''))(); // 题干，无题干条目为空
+  TextColumn get questionHash =>
+      text().withDefault(const Constant(''))(); // sha256，精确匹配用；无题干条目为空
+  IntColumn get paperId => integer().nullable()(); // 所属卷次（可空）
+  IntColumn get questionNo => integer().nullable()(); // 卷内题号（可空）
   TextColumn get answer => text()();
   TextColumn get solution => text().withDefault(const Constant(''))();
   TextColumn get knowledgePoints =>
@@ -59,6 +68,20 @@ class AnswerLibrary extends Table {
   TextColumn get subject =>
       text().withDefault(const Constant('未分类'))(); // 题目所属学科
   TextColumn get source => text().withDefault(const Constant('local'))();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+}
+
+/// 卷次表（答案册/试卷来源）
+///
+/// 用户导入一份答案册时创建一个卷次并命名（如"2024海淀一模数学"），
+/// 该卷的所有答案条目通过 [AnswerLibrary.paperId] 归属卷次。
+/// 多套答案混合做题时，靠卷次 + 题号唯一锁定，避免跨卷错配。
+@DataClassName('AnswerPaperEntity')
+class AnswerPapers extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()(); // 卷次名称（用户命名）
+  TextColumn get subject => text().withDefault(const Constant('未分类'))();
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
 }

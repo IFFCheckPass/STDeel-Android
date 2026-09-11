@@ -107,6 +107,9 @@ class SyncService {
   }
 
   /// 上传标准答案 → 同步至后端 + 写本地 drift
+  ///
+  /// [paperId]/[questionNo] 为答案册卷次归属（可空）；"无题干条目"
+  /// （questionText 为空）仅写本地，不上传后端（后端契约尚未支持卷次）。
   Future<void> uploadAnswer({
     required String questionText,
     required String questionHash,
@@ -114,23 +117,30 @@ class SyncService {
     String solution = '',
     List<String> knowledgePoints = const [],
     String subject = '未分类',
+    int? paperId,
+    int? questionNo,
   }) async {
-    try {
-      await _api.uploadAnswer({
-        'question_text': questionText,
-        'question_hash': questionHash,
-        'answer': answer,
-        'solution': solution,
-        'knowledge_points': knowledgePoints,
-        'subject': subject,
-      });
-    } catch (_) {
-      // 静默
+    final hasQuestion = questionText.trim().isNotEmpty;
+    if (hasQuestion) {
+      try {
+        await _api.uploadAnswer({
+          'question_text': questionText,
+          'question_hash': questionHash,
+          'answer': answer,
+          'solution': solution,
+          'knowledge_points': knowledgePoints,
+          'subject': subject,
+        });
+      } catch (_) {
+        // 静默
+      }
     }
     await _db.answerLibraryDao.insert(
       AnswerLibraryCompanion.insert(
-        questionText: questionText,
-        questionHash: questionHash,
+        questionText: Value(questionText),
+        questionHash: Value(questionHash),
+        paperId: Value(paperId),
+        questionNo: Value(questionNo),
         answer: answer,
         solution: Value(solution),
         knowledgePoints: Value(jsonEncode(knowledgePoints)),

@@ -194,3 +194,22 @@ rm -f android/upload-keystore.jks android/key.properties
 - **签名**：`feature/signing-config`（已 fetch 远端分支）取 `upload-keystore.jks`+`key.properties`（不并入 main）。产物改名 `app-0.6.3.apk`，SHA-256 `f101ac9c...`。
 - **发布**：先 `git push` 源码到 `main`，再 `gh release create v0.6.3 --prerelease app-0.6.3.apk`（0.6.3 < 1.0.0 → Pre-Release）。
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.6.3.apk`，保持 `main` 干净。
+
+### 卷次匹配功能开发（✅ 环境重建 + build_runner 生成通过，未打包 APK）
+- **环境重建（本沙箱 /opt 又被清空，仅需 Dart 侧，未装 Android SDK）**：
+  - Flutter 3.47.1：**正确镜像 URL**（注意 BUILD.md v0.6.1 记录的路径有误，缺一层 `flutter/`）：
+    `https://mirrors.cloud.tencent.com/flutter/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.1-stable.tar.xz`（约 1.5GB）
+    备用：`https://storage.flutter-io.cn/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.1-stable.tar.xz`。
+  - 解压到 `/opt/flutter` 后需 `git config --global --add safe.directory /opt/flutter`。
+- **仅 Dart 侧流程**（数据库 schema 改动时必跑）：
+  ```bash
+  export PATH=/opt/flutter/bin:$PATH
+  export PUB_HOSTED_URL=https://pub.flutter-io.cn
+  export FLUTTER_STORAGE_BASE_URL=https://mirrors.cloud.tencent.com/flutter
+  cd /workspace && flutter pub get
+  dart run build_runner build --delete-conflicting-outputs   # 生成 database.g.dart / daos/*.g.dart
+  flutter analyze    # 0 error / 0 warning
+  flutter test       # 全部通过
+  ```
+  - 注意：Flutter 3.47 下 `--delete-conflicting-outputs` 已被忽略（仅警告，不影响生成）。
+- **功能**：答案库支持"卷次+题号"认领（schema v7：新增 `answer_papers` 表，`answer_library` 加 `paper_id`/`question_no`，无题干条目 question_text/hash 允许为空）；解题侧"拆题→答案库匹配→未命中才走 AI"。

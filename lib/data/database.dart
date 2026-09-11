@@ -13,6 +13,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 import 'daos/answer_library_dao.dart';
+import 'daos/answer_paper_dao.dart';
 import 'daos/knowledge_dao.dart';
 import 'daos/pending_delete_dao.dart';
 import 'daos/solve_record_dao.dart';
@@ -21,8 +22,20 @@ import 'tables.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [SolveRecords, AnswerLibrary, KnowledgeMastery, PendingDeletes],
-  daos: [SolveRecordDao, AnswerLibraryDao, KnowledgeDao, PendingDeleteDao],
+  tables: [
+    SolveRecords,
+    AnswerLibrary,
+    AnswerPapers,
+    KnowledgeMastery,
+    PendingDeletes,
+  ],
+  daos: [
+    SolveRecordDao,
+    AnswerLibraryDao,
+    AnswerPaperDao,
+    KnowledgeDao,
+    PendingDeleteDao,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase._() : super(_open());
@@ -32,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   static AppDatabase get instance => _instance ??= AppDatabase._();
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -84,6 +97,16 @@ class AppDatabase extends _$AppDatabase {
           // v5 -> v6：新增待删除队列（删除墓碑，防止删除后下拉回写）
           if (from < 6) {
             await m.create(pendingDeletes);
+          }
+          // v6 -> v7：答案库支持"卷次+题号"认领（多套答案混合做题场景）
+          if (from < 7) {
+            await m.create(answerPapers);
+            await m.addColumn(answerLibrary, answerLibrary.paperId);
+            await m.addColumn(answerLibrary, answerLibrary.questionNo);
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_ans_paper_no '
+              'ON answer_library(paper_id, question_no)',
+            );
           }
         },
       );

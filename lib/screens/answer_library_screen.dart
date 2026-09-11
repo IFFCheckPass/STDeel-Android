@@ -131,6 +131,10 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
   }
 
   /// 从 PDF / Word 文档导入：AI 自动拆分 → 批量入库答案库。
+  /// 支持两类答案册：
+  ///   - 带题干：正常入库（可上传后端）；
+  ///   - 只有题号+答案：以"卷次+题号"条目入库（无题干，仅本地），
+  ///     供解题时认领匹配。
   Future<void> _importFile() async {
     final models = context.read<SettingsProvider>().buildModelChain();
     if (models.isEmpty) {
@@ -156,6 +160,10 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
     final filePath = result.files.single.path;
     if (filePath == null || filePath.isEmpty || !mounted) return;
 
+    // 先让用户命名卷次（复用同名卷，避免重复创建）
+    final paperId = await _promptPaperName();
+    if (paperId == null || !mounted) return;
+
     // 展示解析中弹窗（不可关闭），完成后关闭
     showDialog<void>(
       context: context,
@@ -178,29 +186,86 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
 
     final sync = context.read<SyncService>();
     var saved = 0;
+    var noQuestion = 0;
     for (final q in split.questions) {
       final content = q.content.trim();
-      if (content.isEmpty) continue;
+      final hasQuestion = content.isNotEmpty;
       await sync.uploadAnswer(
         questionText: content,
-        questionHash: _hashOf(content),
+        questionHash: hasQuestion ? _hashOf(content) : '',
         answer: q.answer,
         solution: q.solution,
         knowledgePoints: q.knowledgePoints,
         subject: q.subject,
+        paperId: paperId,
+        questionNo: q.questionNo > 0 ? q.questionNo : null,
       );
-      saved++;
+      if (hasQuestion) {
+        saved++;
+      } else {
+        noQuestion++;
+      }
     }
     await _refresh();
     if (!mounted) return;
     showGlassSnackBar(
       context,
-      saved == 0
+      saved == 0 && noQuestion == 0
           ? '未从文档中识别到有效题目'
-          : '已将 ${split.usedModel} 识别出的 $saved 道题导入答案库',
-      success: saved > 0,
-      error: saved == 0,
+          : '已导入 $saved 道带题干、$noQuestion 道仅题号答案（无题干）',
+      success: saved > 0 || noQuestion > 0,
+      error: saved == 0 && noQuestion == 0,
     );
+  }
+
+  /// 导入答案册前命名卷次；同名卷复用，避免重复创建
+  Future<int?> _promptPaperName() async {
+    final ctrl = TextEditingController();
+    try {
+      final name = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('导入答案册'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '给这份答案册命名（如"2024海淀一模数学"）。'
+                '解题时按"卷次 + 题号"自动匹配答案；多套答案混合使用时靠名字区分。',
+                style: TextStyle(fontSize: 12, color: G.textFaint, height: 1.5),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: '卷次名称',
+                  hintText: '2024海淀一模数学',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('导入'),
+            ),
+          ],
+        ),
+      );
+      if (name == null || name.isEmpty || !mounted) return null;
+      final db = context.read<AppDatabase>();
+      final existing = await db.answerPaperDao.getByName(name);
+      if (existing != null) return existing.id;
+      return await db.answerPaperDao.insert(name);
+    } finally {
+      ctrl.dispose();
+    }
   }
 
   @override
@@ -256,9 +321,15 @@ class _AnswerLibraryScreenState extends State<AnswerLibraryScreen> {
                               side: BorderSide(color: G.glassBorder),
                             ),
                             child: ListTile(
-                              title: Text(r.questionText,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis),
+                              title: Text(
+                                r.questionText.isEmpty
+                                    ? (r.questionNo != null
+                                        ? '第 ${r.questionNo} 题（仅答案）'
+                                        : '（无题干条目）')
+                                    : r.questionText,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                               subtitle: Text('答案：${r.answer}'),
                               trailing: Text('${r.source}'),
                             ),

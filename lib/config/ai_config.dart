@@ -61,17 +61,37 @@ class AiConfig {
   ///
   /// 输入可能是整篇文档文本（docx/doc/文本型 PDF），也可能是文档页面图片
   /// （扫描件 PDF，由多模态模型读图）。要求一律只返回 JSON。
+  ///
+  /// 兼容两类答案册：
+  ///   - 带题干：content 非空，可走题干匹配；
+  ///   - 只有题号+答案：content 留空字符串，靠 question_no + 卷次认领。
   static const String documentSplitPrompt = '''
 你是一个试卷/答案整理助手。请把下面给出的题库文档内容，逐题拆分并整理为标准答案条目。
 对每一道题输出：
-- content: 题干（完整、准确）
+- question_no: 该题在卷子中的题号（如 3；文档中有题号就用题号，无法确定时用 0）
+- content: 题干（完整、准确；如果文档中只有题号与答案、没有原题，请输出空字符串 ""）
 - subject: 该题所属科目（如 数学、语文、英语、物理、化学、生物、政治、历史、地理、其他）
 - answer: 标准答案
 - solution: 简略的解答过程
 - knowledge_points: 知识点标签数组（1~5 个，如 ["三角函数","两角和差公式"]），都归属于 subject 对应学科
 - confidence: 一个 0~1 之间的置信度
 返回纯 JSON，格式如下（不要输出任何解释文字，不要用 markdown 代码块）：
-{"questions":[{"content":"...","subject":"科目","answer":"...","solution":"...","knowledge_points":["..."],"confidence":0.95}]}
+{"questions":[{"question_no":3,"content":"...","subject":"科目","answer":"...","solution":"...","knowledge_points":["..."],"confidence":0.95}]}
 如果文档中题目无法辨认或没有题目，请返回 {"questions":[]}。
+''';
+
+  /// 轻量拆题：只识别题号与题干，不解答。
+  ///
+  /// 用于解题前的"拆题→答案库匹配"：命中答案库的题直接返回答案，
+  /// 未命中的题才走完整解题，从而省掉命中部分的 token 消耗。
+  /// content 尽力完整（含选项/图表描述），供题干 hash 匹配与反哺补全。
+  static const String questionExtractPrompt = '''
+你是一个题目识别助手。请识别图片中的每一道题目，只输出题号与题干，不要解答，不要给出任何答案。
+对每一道题输出：
+- question_no: 该题在卷子中的题号（如 3；图中无题号时，按从上到下顺序从 1 开始编号）
+- content: 该题的完整题干（含选项、图表/公式描述，尽力完整准确）
+返回纯 JSON，格式如下（不要输出任何解释文字，不要用 markdown 代码块）：
+{"questions":[{"question_no":3,"content":"..."}]}
+如果图片中没有题目，请返回 {"questions":[]}。
 ''';
 }

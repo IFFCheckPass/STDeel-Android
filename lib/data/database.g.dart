@@ -770,13 +770,29 @@ class $AnswerLibraryTable extends AnswerLibrary
   @override
   late final GeneratedColumn<String> questionText = GeneratedColumn<String>(
       'question_text', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
   static const VerificationMeta _questionHashMeta =
       const VerificationMeta('questionHash');
   @override
   late final GeneratedColumn<String> questionHash = GeneratedColumn<String>(
       'question_hash', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _paperIdMeta =
+      const VerificationMeta('paperId');
+  @override
+  late final GeneratedColumn<int> paperId = GeneratedColumn<int>(
+      'paper_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _questionNoMeta =
+      const VerificationMeta('questionNo');
+  @override
+  late final GeneratedColumn<int> questionNo = GeneratedColumn<int>(
+      'question_no', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _answerMeta = const VerificationMeta('answer');
   @override
   late final GeneratedColumn<String> answer = GeneratedColumn<String>(
@@ -826,6 +842,8 @@ class $AnswerLibraryTable extends AnswerLibrary
         id,
         questionText,
         questionHash,
+        paperId,
+        questionNo,
         answer,
         solution,
         knowledgePoints,
@@ -852,16 +870,22 @@ class $AnswerLibraryTable extends AnswerLibrary
           _questionTextMeta,
           questionText.isAcceptableOrUnknown(
               data['question_text']!, _questionTextMeta));
-    } else if (isInserting) {
-      context.missing(_questionTextMeta);
     }
     if (data.containsKey('question_hash')) {
       context.handle(
           _questionHashMeta,
           questionHash.isAcceptableOrUnknown(
               data['question_hash']!, _questionHashMeta));
-    } else if (isInserting) {
-      context.missing(_questionHashMeta);
+    }
+    if (data.containsKey('paper_id')) {
+      context.handle(_paperIdMeta,
+          paperId.isAcceptableOrUnknown(data['paper_id']!, _paperIdMeta));
+    }
+    if (data.containsKey('question_no')) {
+      context.handle(
+          _questionNoMeta,
+          questionNo.isAcceptableOrUnknown(
+              data['question_no']!, _questionNoMeta));
     }
     if (data.containsKey('answer')) {
       context.handle(_answerMeta,
@@ -906,6 +930,10 @@ class $AnswerLibraryTable extends AnswerLibrary
           .read(DriftSqlType.string, data['${effectivePrefix}question_text'])!,
       questionHash: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}question_hash'])!,
+      paperId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}paper_id']),
+      questionNo: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}question_no']),
       answer: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}answer'])!,
       solution: attachedDatabase.typeMapping
@@ -932,6 +960,8 @@ class AnswerLibraryEntity extends DataClass
   final int id;
   final String questionText;
   final String questionHash;
+  final int? paperId;
+  final int? questionNo;
   final String answer;
   final String solution;
   final String knowledgePoints;
@@ -942,6 +972,8 @@ class AnswerLibraryEntity extends DataClass
       {required this.id,
       required this.questionText,
       required this.questionHash,
+      this.paperId,
+      this.questionNo,
       required this.answer,
       required this.solution,
       required this.knowledgePoints,
@@ -954,6 +986,12 @@ class AnswerLibraryEntity extends DataClass
     map['id'] = Variable<int>(id);
     map['question_text'] = Variable<String>(questionText);
     map['question_hash'] = Variable<String>(questionHash);
+    if (!nullToAbsent || paperId != null) {
+      map['paper_id'] = Variable<int>(paperId);
+    }
+    if (!nullToAbsent || questionNo != null) {
+      map['question_no'] = Variable<int>(questionNo);
+    }
     map['answer'] = Variable<String>(answer);
     map['solution'] = Variable<String>(solution);
     map['knowledge_points'] = Variable<String>(knowledgePoints);
@@ -968,6 +1006,12 @@ class AnswerLibraryEntity extends DataClass
       id: Value(id),
       questionText: Value(questionText),
       questionHash: Value(questionHash),
+      paperId: paperId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paperId),
+      questionNo: questionNo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(questionNo),
       answer: Value(answer),
       solution: Value(solution),
       knowledgePoints: Value(knowledgePoints),
@@ -984,6 +1028,8 @@ class AnswerLibraryEntity extends DataClass
       id: serializer.fromJson<int>(json['id']),
       questionText: serializer.fromJson<String>(json['questionText']),
       questionHash: serializer.fromJson<String>(json['questionHash']),
+      paperId: serializer.fromJson<int?>(json['paperId']),
+      questionNo: serializer.fromJson<int?>(json['questionNo']),
       answer: serializer.fromJson<String>(json['answer']),
       solution: serializer.fromJson<String>(json['solution']),
       knowledgePoints: serializer.fromJson<String>(json['knowledgePoints']),
@@ -999,6 +1045,8 @@ class AnswerLibraryEntity extends DataClass
       'id': serializer.toJson<int>(id),
       'questionText': serializer.toJson<String>(questionText),
       'questionHash': serializer.toJson<String>(questionHash),
+      'paperId': serializer.toJson<int?>(paperId),
+      'questionNo': serializer.toJson<int?>(questionNo),
       'answer': serializer.toJson<String>(answer),
       'solution': serializer.toJson<String>(solution),
       'knowledgePoints': serializer.toJson<String>(knowledgePoints),
@@ -1012,6 +1060,8 @@ class AnswerLibraryEntity extends DataClass
           {int? id,
           String? questionText,
           String? questionHash,
+          Value<int?> paperId = const Value.absent(),
+          Value<int?> questionNo = const Value.absent(),
           String? answer,
           String? solution,
           String? knowledgePoints,
@@ -1022,6 +1072,8 @@ class AnswerLibraryEntity extends DataClass
         id: id ?? this.id,
         questionText: questionText ?? this.questionText,
         questionHash: questionHash ?? this.questionHash,
+        paperId: paperId.present ? paperId.value : this.paperId,
+        questionNo: questionNo.present ? questionNo.value : this.questionNo,
         answer: answer ?? this.answer,
         solution: solution ?? this.solution,
         knowledgePoints: knowledgePoints ?? this.knowledgePoints,
@@ -1038,6 +1090,9 @@ class AnswerLibraryEntity extends DataClass
       questionHash: data.questionHash.present
           ? data.questionHash.value
           : this.questionHash,
+      paperId: data.paperId.present ? data.paperId.value : this.paperId,
+      questionNo:
+          data.questionNo.present ? data.questionNo.value : this.questionNo,
       answer: data.answer.present ? data.answer.value : this.answer,
       solution: data.solution.present ? data.solution.value : this.solution,
       knowledgePoints: data.knowledgePoints.present
@@ -1055,6 +1110,8 @@ class AnswerLibraryEntity extends DataClass
           ..write('id: $id, ')
           ..write('questionText: $questionText, ')
           ..write('questionHash: $questionHash, ')
+          ..write('paperId: $paperId, ')
+          ..write('questionNo: $questionNo, ')
           ..write('answer: $answer, ')
           ..write('solution: $solution, ')
           ..write('knowledgePoints: $knowledgePoints, ')
@@ -1066,8 +1123,18 @@ class AnswerLibraryEntity extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(id, questionText, questionHash, answer,
-      solution, knowledgePoints, subject, source, createdAt);
+  int get hashCode => Object.hash(
+      id,
+      questionText,
+      questionHash,
+      paperId,
+      questionNo,
+      answer,
+      solution,
+      knowledgePoints,
+      subject,
+      source,
+      createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1075,6 +1142,8 @@ class AnswerLibraryEntity extends DataClass
           other.id == this.id &&
           other.questionText == this.questionText &&
           other.questionHash == this.questionHash &&
+          other.paperId == this.paperId &&
+          other.questionNo == this.questionNo &&
           other.answer == this.answer &&
           other.solution == this.solution &&
           other.knowledgePoints == this.knowledgePoints &&
@@ -1087,6 +1156,8 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
   final Value<int> id;
   final Value<String> questionText;
   final Value<String> questionHash;
+  final Value<int?> paperId;
+  final Value<int?> questionNo;
   final Value<String> answer;
   final Value<String> solution;
   final Value<String> knowledgePoints;
@@ -1097,6 +1168,8 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
     this.id = const Value.absent(),
     this.questionText = const Value.absent(),
     this.questionHash = const Value.absent(),
+    this.paperId = const Value.absent(),
+    this.questionNo = const Value.absent(),
     this.answer = const Value.absent(),
     this.solution = const Value.absent(),
     this.knowledgePoints = const Value.absent(),
@@ -1106,21 +1179,23 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
   });
   AnswerLibraryCompanion.insert({
     this.id = const Value.absent(),
-    required String questionText,
-    required String questionHash,
+    this.questionText = const Value.absent(),
+    this.questionHash = const Value.absent(),
+    this.paperId = const Value.absent(),
+    this.questionNo = const Value.absent(),
     required String answer,
     this.solution = const Value.absent(),
     this.knowledgePoints = const Value.absent(),
     this.subject = const Value.absent(),
     this.source = const Value.absent(),
     this.createdAt = const Value.absent(),
-  })  : questionText = Value(questionText),
-        questionHash = Value(questionHash),
-        answer = Value(answer);
+  }) : answer = Value(answer);
   static Insertable<AnswerLibraryEntity> custom({
     Expression<int>? id,
     Expression<String>? questionText,
     Expression<String>? questionHash,
+    Expression<int>? paperId,
+    Expression<int>? questionNo,
     Expression<String>? answer,
     Expression<String>? solution,
     Expression<String>? knowledgePoints,
@@ -1132,6 +1207,8 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
       if (id != null) 'id': id,
       if (questionText != null) 'question_text': questionText,
       if (questionHash != null) 'question_hash': questionHash,
+      if (paperId != null) 'paper_id': paperId,
+      if (questionNo != null) 'question_no': questionNo,
       if (answer != null) 'answer': answer,
       if (solution != null) 'solution': solution,
       if (knowledgePoints != null) 'knowledge_points': knowledgePoints,
@@ -1145,6 +1222,8 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
       {Value<int>? id,
       Value<String>? questionText,
       Value<String>? questionHash,
+      Value<int?>? paperId,
+      Value<int?>? questionNo,
       Value<String>? answer,
       Value<String>? solution,
       Value<String>? knowledgePoints,
@@ -1155,6 +1234,8 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
       id: id ?? this.id,
       questionText: questionText ?? this.questionText,
       questionHash: questionHash ?? this.questionHash,
+      paperId: paperId ?? this.paperId,
+      questionNo: questionNo ?? this.questionNo,
       answer: answer ?? this.answer,
       solution: solution ?? this.solution,
       knowledgePoints: knowledgePoints ?? this.knowledgePoints,
@@ -1175,6 +1256,12 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
     }
     if (questionHash.present) {
       map['question_hash'] = Variable<String>(questionHash.value);
+    }
+    if (paperId.present) {
+      map['paper_id'] = Variable<int>(paperId.value);
+    }
+    if (questionNo.present) {
+      map['question_no'] = Variable<int>(questionNo.value);
     }
     if (answer.present) {
       map['answer'] = Variable<String>(answer.value);
@@ -1203,11 +1290,269 @@ class AnswerLibraryCompanion extends UpdateCompanion<AnswerLibraryEntity> {
           ..write('id: $id, ')
           ..write('questionText: $questionText, ')
           ..write('questionHash: $questionHash, ')
+          ..write('paperId: $paperId, ')
+          ..write('questionNo: $questionNo, ')
           ..write('answer: $answer, ')
           ..write('solution: $solution, ')
           ..write('knowledgePoints: $knowledgePoints, ')
           ..write('subject: $subject, ')
           ..write('source: $source, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AnswerPapersTable extends AnswerPapers
+    with TableInfo<$AnswerPapersTable, AnswerPaperEntity> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AnswerPapersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _subjectMeta =
+      const VerificationMeta('subject');
+  @override
+  late final GeneratedColumn<String> subject = GeneratedColumn<String>(
+      'subject', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('未分类'));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [id, name, subject, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'answer_papers';
+  @override
+  VerificationContext validateIntegrity(Insertable<AnswerPaperEntity> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('subject')) {
+      context.handle(_subjectMeta,
+          subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AnswerPaperEntity map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AnswerPaperEntity(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      subject: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}subject'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $AnswerPapersTable createAlias(String alias) {
+    return $AnswerPapersTable(attachedDatabase, alias);
+  }
+}
+
+class AnswerPaperEntity extends DataClass
+    implements Insertable<AnswerPaperEntity> {
+  final int id;
+  final String name;
+  final String subject;
+  final DateTime createdAt;
+  const AnswerPaperEntity(
+      {required this.id,
+      required this.name,
+      required this.subject,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['subject'] = Variable<String>(subject);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  AnswerPapersCompanion toCompanion(bool nullToAbsent) {
+    return AnswerPapersCompanion(
+      id: Value(id),
+      name: Value(name),
+      subject: Value(subject),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory AnswerPaperEntity.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AnswerPaperEntity(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      subject: serializer.fromJson<String>(json['subject']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'subject': serializer.toJson<String>(subject),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  AnswerPaperEntity copyWith(
+          {int? id, String? name, String? subject, DateTime? createdAt}) =>
+      AnswerPaperEntity(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        subject: subject ?? this.subject,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  AnswerPaperEntity copyWithCompanion(AnswerPapersCompanion data) {
+    return AnswerPaperEntity(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AnswerPaperEntity(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('subject: $subject, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, subject, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AnswerPaperEntity &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.subject == this.subject &&
+          other.createdAt == this.createdAt);
+}
+
+class AnswerPapersCompanion extends UpdateCompanion<AnswerPaperEntity> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<String> subject;
+  final Value<DateTime> createdAt;
+  const AnswerPapersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  AnswerPapersCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.subject = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : name = Value(name);
+  static Insertable<AnswerPaperEntity> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<String>? subject,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (subject != null) 'subject': subject,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  AnswerPapersCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? name,
+      Value<String>? subject,
+      Value<DateTime>? createdAt}) {
+    return AnswerPapersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      subject: subject ?? this.subject,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<String>(subject.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AnswerPapersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('subject: $subject, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -1784,6 +2129,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $SolveRecordsTable solveRecords = $SolveRecordsTable(this);
   late final $AnswerLibraryTable answerLibrary = $AnswerLibraryTable(this);
+  late final $AnswerPapersTable answerPapers = $AnswerPapersTable(this);
   late final $KnowledgeMasteryTable knowledgeMastery =
       $KnowledgeMasteryTable(this);
   late final $PendingDeletesTable pendingDeletes = $PendingDeletesTable(this);
@@ -1791,6 +2137,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       SolveRecordDao(this as AppDatabase);
   late final AnswerLibraryDao answerLibraryDao =
       AnswerLibraryDao(this as AppDatabase);
+  late final AnswerPaperDao answerPaperDao =
+      AnswerPaperDao(this as AppDatabase);
   late final KnowledgeDao knowledgeDao = KnowledgeDao(this as AppDatabase);
   late final PendingDeleteDao pendingDeleteDao =
       PendingDeleteDao(this as AppDatabase);
@@ -1798,8 +2146,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [solveRecords, answerLibrary, knowledgeMastery, pendingDeletes];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+        solveRecords,
+        answerLibrary,
+        answerPapers,
+        knowledgeMastery,
+        pendingDeletes
+      ];
 }
 
 typedef $$SolveRecordsTableCreateCompanionBuilder = SolveRecordsCompanion
@@ -2145,8 +2498,10 @@ typedef $$SolveRecordsTableProcessedTableManager = ProcessedTableManager<
 typedef $$AnswerLibraryTableCreateCompanionBuilder = AnswerLibraryCompanion
     Function({
   Value<int> id,
-  required String questionText,
-  required String questionHash,
+  Value<String> questionText,
+  Value<String> questionHash,
+  Value<int?> paperId,
+  Value<int?> questionNo,
   required String answer,
   Value<String> solution,
   Value<String> knowledgePoints,
@@ -2159,6 +2514,8 @@ typedef $$AnswerLibraryTableUpdateCompanionBuilder = AnswerLibraryCompanion
   Value<int> id,
   Value<String> questionText,
   Value<String> questionHash,
+  Value<int?> paperId,
+  Value<int?> questionNo,
   Value<String> answer,
   Value<String> solution,
   Value<String> knowledgePoints,
@@ -2184,6 +2541,12 @@ class $$AnswerLibraryTableFilterComposer
 
   ColumnFilters<String> get questionHash => $composableBuilder(
       column: $table.questionHash, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get paperId => $composableBuilder(
+      column: $table.paperId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get questionNo => $composableBuilder(
+      column: $table.questionNo, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get answer => $composableBuilder(
       column: $table.answer, builder: (column) => ColumnFilters(column));
@@ -2225,6 +2588,12 @@ class $$AnswerLibraryTableOrderingComposer
       column: $table.questionHash,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get paperId => $composableBuilder(
+      column: $table.paperId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get questionNo => $composableBuilder(
+      column: $table.questionNo, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get answer => $composableBuilder(
       column: $table.answer, builder: (column) => ColumnOrderings(column));
 
@@ -2262,6 +2631,12 @@ class $$AnswerLibraryTableAnnotationComposer
 
   GeneratedColumn<String> get questionHash => $composableBuilder(
       column: $table.questionHash, builder: (column) => column);
+
+  GeneratedColumn<int> get paperId =>
+      $composableBuilder(column: $table.paperId, builder: (column) => column);
+
+  GeneratedColumn<int> get questionNo => $composableBuilder(
+      column: $table.questionNo, builder: (column) => column);
 
   GeneratedColumn<String> get answer =>
       $composableBuilder(column: $table.answer, builder: (column) => column);
@@ -2311,6 +2686,8 @@ class $$AnswerLibraryTableTableManager extends RootTableManager<
             Value<int> id = const Value.absent(),
             Value<String> questionText = const Value.absent(),
             Value<String> questionHash = const Value.absent(),
+            Value<int?> paperId = const Value.absent(),
+            Value<int?> questionNo = const Value.absent(),
             Value<String> answer = const Value.absent(),
             Value<String> solution = const Value.absent(),
             Value<String> knowledgePoints = const Value.absent(),
@@ -2322,6 +2699,8 @@ class $$AnswerLibraryTableTableManager extends RootTableManager<
             id: id,
             questionText: questionText,
             questionHash: questionHash,
+            paperId: paperId,
+            questionNo: questionNo,
             answer: answer,
             solution: solution,
             knowledgePoints: knowledgePoints,
@@ -2331,8 +2710,10 @@ class $$AnswerLibraryTableTableManager extends RootTableManager<
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
-            required String questionText,
-            required String questionHash,
+            Value<String> questionText = const Value.absent(),
+            Value<String> questionHash = const Value.absent(),
+            Value<int?> paperId = const Value.absent(),
+            Value<int?> questionNo = const Value.absent(),
             required String answer,
             Value<String> solution = const Value.absent(),
             Value<String> knowledgePoints = const Value.absent(),
@@ -2344,6 +2725,8 @@ class $$AnswerLibraryTableTableManager extends RootTableManager<
             id: id,
             questionText: questionText,
             questionHash: questionHash,
+            paperId: paperId,
+            questionNo: questionNo,
             answer: answer,
             solution: solution,
             knowledgePoints: knowledgePoints,
@@ -2377,6 +2760,162 @@ typedef $$AnswerLibraryTableProcessedTableManager = ProcessedTableManager<
       BaseReferences<_$AppDatabase, $AnswerLibraryTable, AnswerLibraryEntity>
     ),
     AnswerLibraryEntity,
+    PrefetchHooks Function()>;
+typedef $$AnswerPapersTableCreateCompanionBuilder = AnswerPapersCompanion
+    Function({
+  Value<int> id,
+  required String name,
+  Value<String> subject,
+  Value<DateTime> createdAt,
+});
+typedef $$AnswerPapersTableUpdateCompanionBuilder = AnswerPapersCompanion
+    Function({
+  Value<int> id,
+  Value<String> name,
+  Value<String> subject,
+  Value<DateTime> createdAt,
+});
+
+class $$AnswerPapersTableFilterComposer
+    extends Composer<_$AppDatabase, $AnswerPapersTable> {
+  $$AnswerPapersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get subject => $composableBuilder(
+      column: $table.subject, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$AnswerPapersTableOrderingComposer
+    extends Composer<_$AppDatabase, $AnswerPapersTable> {
+  $$AnswerPapersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get subject => $composableBuilder(
+      column: $table.subject, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$AnswerPapersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AnswerPapersTable> {
+  $$AnswerPapersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$AnswerPapersTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $AnswerPapersTable,
+    AnswerPaperEntity,
+    $$AnswerPapersTableFilterComposer,
+    $$AnswerPapersTableOrderingComposer,
+    $$AnswerPapersTableAnnotationComposer,
+    $$AnswerPapersTableCreateCompanionBuilder,
+    $$AnswerPapersTableUpdateCompanionBuilder,
+    (
+      AnswerPaperEntity,
+      BaseReferences<_$AppDatabase, $AnswerPapersTable, AnswerPaperEntity>
+    ),
+    AnswerPaperEntity,
+    PrefetchHooks Function()> {
+  $$AnswerPapersTableTableManager(_$AppDatabase db, $AnswerPapersTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AnswerPapersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AnswerPapersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AnswerPapersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> name = const Value.absent(),
+            Value<String> subject = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              AnswerPapersCompanion(
+            id: id,
+            name: name,
+            subject: subject,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String name,
+            Value<String> subject = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              AnswerPapersCompanion.insert(
+            id: id,
+            name: name,
+            subject: subject,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable<$AnswerPapersTable, AnswerPaperEntity>(table),
+                    BaseReferences<_$AppDatabase, $AnswerPapersTable,
+                        AnswerPaperEntity>(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$AnswerPapersTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $AnswerPapersTable,
+    AnswerPaperEntity,
+    $$AnswerPapersTableFilterComposer,
+    $$AnswerPapersTableOrderingComposer,
+    $$AnswerPapersTableAnnotationComposer,
+    $$AnswerPapersTableCreateCompanionBuilder,
+    $$AnswerPapersTableUpdateCompanionBuilder,
+    (
+      AnswerPaperEntity,
+      BaseReferences<_$AppDatabase, $AnswerPapersTable, AnswerPaperEntity>
+    ),
+    AnswerPaperEntity,
     PrefetchHooks Function()>;
 typedef $$KnowledgeMasteryTableCreateCompanionBuilder
     = KnowledgeMasteryCompanion Function({
@@ -2722,6 +3261,8 @@ class $AppDatabaseManager {
       $$SolveRecordsTableTableManager(_db, _db.solveRecords);
   $$AnswerLibraryTableTableManager get answerLibrary =>
       $$AnswerLibraryTableTableManager(_db, _db.answerLibrary);
+  $$AnswerPapersTableTableManager get answerPapers =>
+      $$AnswerPapersTableTableManager(_db, _db.answerPapers);
   $$KnowledgeMasteryTableTableManager get knowledgeMastery =>
       $$KnowledgeMasteryTableTableManager(_db, _db.knowledgeMastery);
   $$PendingDeletesTableTableManager get pendingDeletes =>
