@@ -261,14 +261,46 @@ class BackendApi {
   }
 
   /// POST /solve-records — 上传解题记录
-  Future<void> uploadSolveRecord(Map<String, dynamic> payload) async {
+  ///
+  /// 返回后端为本次上传分配的记录 id 列表（用于写回本地 remoteId，
+  /// 使删除 / 反馈等后续操作能命中正确的服务器记录）。
+  /// 后端未返回任何 id 时返回空列表，调用方保持原状（不写 remoteId）。
+  Future<List<int>> uploadSolveRecord(Map<String, dynamic> payload) async {
     final url = '${await _baseUrl()}/solve-records';
     payload['user_id'] = await _userId();
     try {
-      await _dio.post<dynamic>(url, data: payload);
+      final resp = await _dio.post<dynamic>(url, data: payload);
+      return _extractIds(resp.data);
     } on DioException catch (e) {
       throw BackendApiException('上传解题记录失败: ${e.message}');
     }
+  }
+
+  /// 递归收集响应中的 id 字段，兼容多种返回形状：
+  /// `{id}` / `{data:{id}}` / `[{id},...]` / `{items:[{id},...]}`。
+  List<int> _extractIds(dynamic data) {
+    final ids = <int>[];
+    void collect(dynamic v) {
+      if (v is Map) {
+        final id = v['id'];
+        if (id is num) ids.add(id.toInt());
+        final items = v['items'];
+        if (items is List) {
+          for (final it in items) {
+            collect(it);
+          }
+        }
+        final inner = v['data'];
+        if (inner is Map || inner is List) collect(inner);
+      } else if (v is List) {
+        for (final it in v) {
+          collect(it);
+        }
+      }
+    }
+
+    collect(data);
+    return ids;
   }
 
   /// PATCH /solve-records/{id}/feedback

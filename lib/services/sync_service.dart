@@ -70,8 +70,15 @@ class SyncService {
         'questions':
             result.questions.map((q) => q.toJson()).toList(growable: false),
       };
-      await _api.uploadSolveRecord(payload);
+      final ids = await _api.uploadSolveRecord(payload);
       if (recordIds != null) {
+        // 后端按顺序返回与本次上传一一对应的 id 时才写回 remoteId，
+        // 否则保持原状（不猜测对应关系，避免错配覆盖正确记录）。
+        if (ids.length == recordIds.length) {
+          for (var i = 0; i < recordIds.length; i++) {
+            await _db.solveRecordDao.setRemoteId(recordIds[i], ids[i]);
+          }
+        }
         for (final id in recordIds) {
           await _db.solveRecordDao.markSynced(id);
         }
@@ -81,10 +88,19 @@ class SyncService {
     }
   }
 
-  /// 反馈更新（"正确/错误"按钮）
+  /// 反馈更新（"正确/错误"按钮）。
+  ///
+  /// 必须使用后端主键 [remoteId] 命中服务器记录；本地尚未拿到 remoteId
+  /// （未同步或后端未返回 id）时跳过 PATCH——反馈字段已在本地更新，
+  /// 会随 [flushUnsynced] 整条重传时一并带过去。
   Future<void> uploadFeedback(int recordId, String feedback) async {
     try {
-      await _api.updateFeedback(recordId, feedback);
+      final rec = await _db.solveRecordDao.getById(recordId);
+      final remoteId = rec?.remoteId ?? 0;
+      if (remoteId <= 0) return;
+      await _api.updateFeedback(remoteId, feedback);
+      // PATCH 成功即视为该条记录已同步，避免无谓整条重传。
+      await _db.solveRecordDao.markSynced(recordId);
     } catch (_) {
       // 静默
     }
@@ -168,7 +184,7 @@ class SyncService {
     var failed = 0;
     for (final r in records) {
       try {
-        await _api.uploadSolveRecord({
+        final ids = await _api.uploadSolveRecord({
           'local_id': r.id,
           'question_text': r.questionText,
           'answer': r.answer,
@@ -181,6 +197,10 @@ class SyncService {
           'image_path': r.imagePath,
           'subject': r.subject,
         });
+        // 逐条上传通常返回单个后端 id：写回 remoteId 供删除/反馈使用。
+        if (ids.length == 1) {
+          await _db.solveRecordDao.setRemoteId(r.id, ids.first);
+        }
       } catch (_) {
         // 网络/后端失败：保留记录待下次重试。
         failed++;
@@ -244,7 +264,8 @@ class SyncService {
           questionText: row['question_text']?.toString() ?? '',
           answer: row['answer']?.toString() ?? '',
           solution: row['solution']?.toString() ?? '',
-          userFeedback: row['user_feedback']?.toString() ?? 'correct',
+          // 后端未回传反馈时不默认成 correct，避免把无反馈记录误标为"正确"
+          userFeedback: row['user_feedback']?.toString() ?? 'none',
           knowledgePoints:
               row['knowledge_points'] is List
                   ? jsonEncode(row['knowledge_points'])

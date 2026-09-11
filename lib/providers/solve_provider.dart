@@ -341,6 +341,7 @@ class SolveProvider extends ChangeNotifier {
     String? imagePath,
     bool attachImage = true,
     int sessionNoOverride = 0,
+    bool commitAll = false,
   }) async {
     if (models.isEmpty) {
       _state = const SolveUiState(
@@ -388,26 +389,40 @@ class SolveProvider extends ChangeNotifier {
         )
         .listen((event) async {
       if (event is AiDone) {
-        final q = event.result.questions.isNotEmpty
-            ? event.result.questions.first
-            : null;
+        final qs = event.result.questions;
         _state = SolveUiState(
           status: SolveStatus.done,
           result: event.result,
           currentModel: event.result.aiModel,
         );
-        if (q != null) {
-          // 重答/疑问等单题结果：沿用原题号，保证"当次解题题号"不丢失
-          if (sessionNoOverride > 0) q.sessionNo = sessionNoOverride;
-          if (overwriteRecord) {
-            // 优先用调用方给定的 questionId（除非它 <= 0，则回退 AI 返回的 id）
-            final effectiveId = questionId > 0 ? questionId : q.id;
+        if (commitAll) {
+          // 举一反三等"生成新题"场景：AI 返回多道变式题，全部各自新建记录，
+          // 不得覆盖任何既有历史记录。
+          for (final q in qs) {
+            if (sessionNoOverride > 0) q.sessionNo = sessionNoOverride;
             await _commitTextResult(
               q,
               event.result,
-              dbId: effectiveId,
+              dbId: 0,
               actionType: actionType,
             );
+          }
+        } else {
+          final q = qs.isNotEmpty ? qs.first : null;
+          if (q != null) {
+            // 重答/疑问等单题结果：沿用原题号，保证"当次解题题号"不丢失
+            if (sessionNoOverride > 0) q.sessionNo = sessionNoOverride;
+            if (overwriteRecord) {
+              // 仅当调用方显式给定 questionId 时才覆盖既有记录；
+              // 否则一律新建，避免把 AI 返回的题号误当本地主键覆盖历史记录。
+              final effectiveId = questionId > 0 ? questionId : 0;
+              await _commitTextResult(
+                q,
+                event.result,
+                dbId: effectiveId,
+                actionType: actionType,
+              );
+            }
           }
         }
         notifyListeners();
@@ -491,6 +506,9 @@ class SolveProvider extends ChangeNotifier {
       );
 
   /// "疑问"按钮：附加详细分步指令；同样携带原图。
+  ///
+  /// [commitAll] 为 true 时（知识点页"举一反三"等生成新题场景），
+  /// AI 返回的每一道题都各自新建一条记录，不覆盖既有历史记录。
   Future<void> askDetailed({
     required int questionId,
     required String questionText,
@@ -498,6 +516,7 @@ class SolveProvider extends ChangeNotifier {
     int thinkTimeout = 20,
     String? imagePath,
     int sessionNoOverride = 0,
+    bool commitAll = false,
   }) =>
       _solveText(
         userPrompt: '$questionText${AiConfig.detailedSolutionSuffix}',
@@ -508,6 +527,7 @@ class SolveProvider extends ChangeNotifier {
         actionType: 'detail',
         imagePath: imagePath,
         sessionNoOverride: sessionNoOverride,
+        commitAll: commitAll,
       );
 
   /// 计算题目哈希（与本地答案库一致）

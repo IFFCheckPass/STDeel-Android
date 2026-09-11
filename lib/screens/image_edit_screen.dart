@@ -151,13 +151,22 @@ class _ImageEditScreenState extends State<ImageEditScreen> {
         childRect = bounds;
       }
 
+      // 极小/损坏图片：clamp 下界会大于上界抛 ArgumentError，先拦截
+      final imgW = rs.width.round();
+      final imgH = rs.height.round();
+      if (imgW < 1 || imgH < 1) {
+        setState(() => _processing = false);
+        showGlassSnackBar(context, '图片尺寸过小，无法裁切', error: true);
+        return;
+      }
+
       final crop = (
         bytes: _bytes!,
         quarterTurns: _quarterTurns,
-        x: childRect.left.round().clamp(0, rs.width.round() - 1),
-        y: childRect.top.round().clamp(0, rs.height.round() - 1),
-        w: childRect.width.round().clamp(1, rs.width.round()),
-        h: childRect.height.round().clamp(1, rs.height.round()),
+        x: childRect.left.round().clamp(0, imgW - 1),
+        y: childRect.top.round().clamp(0, imgH - 1),
+        w: childRect.width.round().clamp(1, imgW),
+        h: childRect.height.round().clamp(1, imgH),
       );
 
       final outBytes = await compute(_cropAndEncode, crop);

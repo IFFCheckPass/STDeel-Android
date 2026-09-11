@@ -422,18 +422,22 @@ class _ComboEditScreenState extends State<ComboEditScreen> {
       showGlassSnackBar(context, 'Base URL 不能为空', error: true);
       return;
     }
-    if (combo.apiKey.isEmpty) {
-      showGlassSnackBar(context, 'API Key 不能为空', error: true);
-      return;
-    }
     if (combo.modelId.isEmpty) {
       showGlassSnackBar(context, 'Model ID 不能为空', error: true);
       return;
     }
+    // 允许 API Key 留空保存：列表中会以"待完善"状态展示，
+    // 用户可先建立组合、稍后补填 Key（预置组合初始即无 Key）。
     final s = context.read<SettingsProvider>();
     await s.saveCombo(combo);
     if (!mounted) return;
-    showGlassSnackBar(context, '组合「${combo.name}」已保存', success: true);
+    showGlassSnackBar(
+      context,
+      combo.isComplete
+          ? '组合「${combo.name}」已保存'
+          : '组合「${combo.name}」已保存，待完善后即可参与解题',
+      success: true,
+    );
     Navigator.of(context).pop(combo);
   }
 

@@ -562,7 +562,16 @@ class AiService {
         if (choices != null && choices.isNotEmpty) {
           final m = (choices[0] as Map)['message'] as Map?;
           final c = m?['content'];
-          if (c is String) content = c;
+          if (c is String) {
+            content = c;
+          } else if (c is List) {
+            // 兼容 OpenAI 多模态分段的 content（parts 数组）：
+            // 逐段取出 text 拼成纯文本，避免误判"模型未返回内容"。
+            content = c
+                .map((p) =>
+                    p is Map ? (p['text'] ?? '').toString() : p.toString())
+                .join();
+          }
         }
       }
       final text = content?.trim() ?? '';

@@ -83,6 +83,12 @@ class SolveRecordDao extends DatabaseAccessor<AppDatabase>
       (update(solveRecords)..where((t) => t.id.equals(id)))
           .write(const SolveRecordsCompanion(synced: Value(true)));
 
+  /// 写回后端主键 remoteId（上传成功后由同步服务调用），
+  /// 使删除 / 反馈等后续操作能命中正确的服务器记录。
+  Future<int> setRemoteId(int id, int remoteId) =>
+      (update(solveRecords)..where((t) => t.id.equals(id)))
+          .write(SolveRecordsCompanion(remoteId: Value(remoteId)));
+
   /// 按后端 remoteId 幂等写回（下拉同步用）。
   ///
   /// 该 remoteId 已存在则更新字段；不存在则插入一条新记录。

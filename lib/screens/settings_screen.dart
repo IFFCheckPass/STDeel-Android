@@ -85,7 +85,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         showGlassSnackBar(context, '已是最新版本', success: true);
         return;
       }
-      _showUpdateDialog(info);
+      final current = await UpdateService.currentVersion();
+      if (!mounted) return;
+      _showUpdateDialog(info, current);
     } catch (e) {
       if (!mounted) return;
       showGlassSnackBar(context, '检查更新失败：$e', error: true);
@@ -93,7 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// 展示"发现新版本"对话框；确认后下载并调用系统安装器
-  void _showUpdateDialog(AppUpdateInfo info) {
+  void _showUpdateDialog(AppUpdateInfo info, String currentVersion) {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -105,7 +107,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '当前版本：${info.version}\n'
+                '当前版本：$currentVersion\n'
+                '新版本：${info.version}\n'
                 '${info.apkUrl.isEmpty ? '' : '包体：${info.humanApkSize}'}',
                 style: const TextStyle(fontSize: 13, height: 1.6),
               ),

@@ -495,6 +495,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           '请基于「$kp」这一知识点，生成 3 道难度递进的变式题，并给出答案与解析。',
       models: models,
       thinkTimeout: settings.thinkTimeout,
+      // 生成的每道变式题都各自新建一条历史记录，不覆盖既有记录
+      commitAll: true,
     );
     if (!context.mounted) return;
     if (solve.state.status == SolveStatus.done) {
