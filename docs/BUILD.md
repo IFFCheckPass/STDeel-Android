@@ -191,6 +191,27 @@ rm -f android/upload-keystore.jks android/key.properties
   - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.0
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.7.0.apk`，保持 `main` 干净。
 
+### v0.7.1（✅ 已成功编译并发布，小版本更新：0.7.0 → c 位 +1）
+- **版本**：`pubspec.yaml version: 0.7.1+18`；`settings_screen.dart` 底部文案与更新卡片均 `v0.7.1`。
+- **本次功能**：
+  1. 内置字体 `assets/fonts/HarmonyOS_Sans_SC_Medium.ttf`（HarmonyOS Sans SC Medium，开源免费商用），`pubspec.yaml` 注册 + `glass.dart` 主题 `fontFamily`，安卓 / Windows 双端统一（桌面端 Flutter 同样从 assets 加载字体）。
+  2. Windows 窗口标题 `windows/runner/main.cpp` 改 `\u601D\u8C16`（思谛）；应用图标用安卓端 `assets/icon/app_icon.png` 重新生成多尺寸 `app_icon.ico`（PIL，16~256px）。
+  3. 更新语义清理：`update_service.dart`/`settings_screen.dart`/`MainActivity.kt` 的 apk 字段与方法统一为 `pkg`/`installPackage`（MethodChannel 方法名同步改 `installPackage`，双端必须一致）。
+- **环境/构建备注（本沙箱 /opt 全新，SDK 重建）**：
+  - Flutter 3.47.1 位于 `/opt/flutter`（已存在）；Android SDK 需自装：cmdline-tools + `platforms;android-36` + `build-tools;36.0.0` + `platform-tools`，Gradle 会按需自动安装 platform-34/35 与 NDK 28.2.13676358、CMake（license 需预先 `yes | sdkmanager --licenses`）。
+  - `ANDROID_HOME=/opt/android-sdk`；`android/gradle.properties` 已配 JDK17（`org.gradle.java.home`）与受限容器参数（daemon=false、workers.max=1、kotlin in-process）。
+  - **⚠️ 首次构建 Gradle daemon 被杀（OOM）**：容器仅 ~6G 内存无 swap，首跑下载依赖 + 自动装 SDK 平台时 daemon 消失（`Gradle build daemon disappeared`）。处理：`pkill -9 -f GradleDaemon` 清残留，二次构建（依赖已缓存）即成功。
+  - **⚠️ file_picker compileSdk 34 不匹配**（老坑复现）：报 `:file_picker:checkReleaseAarMetadata — flutter_plugin_android_lifecycle 要求依赖方 compileSdk>=36`。修复同前：直接改 pub-cache 插件源码（两处都改，pub.dev 与 pub.flutter-io.cn 副本）：
+    ```bash
+    sed -i 's/compileSdk 34/compileSdk 36/' /root/.pub-cache/hosted/pub.dev/file_picker-8.3.7/android/build.gradle
+    sed -i 's/compileSdk 34/compileSdk 36/' /root/.pub-cache/hosted/pub.flutter-io.cn/file_picker-8.3.7/android/build.gradle
+    ```
+- **构建**：`flutter build apk --release -PsigningEnabled`，前两次失败（OOM / file_picker）后第三次 Gradle 阶段约 **209.6s**。产物 **app-release.apk 74.2MB**（内置字体 +8MB）。
+- **签名**：`feature/signing-config`（`git fetch origin feature/signing-config` + `git checkout FETCH_HEAD -- android/upload-keystore.jks android/key.properties`，不并入 main）。`apksigner verify --print-certs` → CN=STDeel（与历史一致）。
+- **发布**：先 `git push` 源码到 `main`，再 `gh release create v0.7.1 --prerelease` 并上传 `app-0.7.1.apk` 与 Windows 安装器 `stdeel-setup-0.7.1.exe`（0.7.1 < 1.0.0 → Pre-Release，双端同一 tag）。
+  - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.1
+- 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.7.1.apk`，保持 `main` 干净（旧提交 b943b3d 曾误提交过 jks/key.properties，本次随 docs 提交一并从 main 树删除）。
+
 ### v0.6.3（✅ 已成功编译并发布）
 - 版本：用户指定为小版本修复，回退到 `pubspec.yaml version: 0.6.3+17`；`settings_screen.dart` 底部文案与更新卡片均 `v0.6.3`。
 - **修复应用内更新"未发现任何已发布版本" bug**（`update_service.dart`）：
