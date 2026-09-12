@@ -487,6 +487,9 @@ class SolveProvider extends ChangeNotifier {
           latencyMs: Value(result.latencyMs),
           tokensUsed: const Value(0),
           matched: const Value(true),
+          // 答案库命中仅为本地记录：直接标记已同步，避免 flushUnsynced
+          // 整条上传到后端（与上方注释"不上传后端"的意图一致）。
+          synced: const Value(true),
           userFeedback: const Value('none'),
           actionType: const Value('solve'),
           imagePath: Value(result.imagePath),

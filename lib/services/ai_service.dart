@@ -343,6 +343,11 @@ class AiService {
       } else if (data is Map && data['error'] is Map) {
         final m = (data['error'] as Map)['message'];
         if (m != null) raw = '$m';
+      } else if (data is Map && data['error'] is String) {
+        // 兼容部分供应商/反代返回的 {"error": "..."} 形状
+        raw = data['error'] as String;
+      } else if (data is Map && data['message'] is String) {
+        raw = data['message'] as String;
       }
       final statusCode = resp.statusCode ?? 0;
       final base = _zhHttpMessage(statusCode);
