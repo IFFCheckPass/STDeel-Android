@@ -86,6 +86,7 @@ class DocumentSplitService {
           model: model,
           userText: _buildUserText(content),
           imageDataUrls: content.images,
+          source: 'AI 调用 · 答案库文档拆分',
         );
         final questions = _parse(raw);
         if (questions.isEmpty) {

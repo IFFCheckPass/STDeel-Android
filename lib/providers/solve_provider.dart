@@ -341,6 +341,7 @@ class SolveProvider extends ChangeNotifier {
         userText: '请识别图片中的题目，只输出题号与题干。',
         imageDataUrls: ['data:image/jpeg;base64,$base64Image'],
         timeoutSeconds: 60,
+        source: 'AI 调用 · 拆题识别',
       );
       return _parseExtracted(raw);
     } catch (_) {

@@ -20,12 +20,13 @@ class FaultLog {
     required this.timestamp,
     required this.code,
     required this.summary,
+    this.detail = '',
   });
 
   /// 本地自增 id（用于列表 key）
   final String id;
 
-  /// 来源（如 `AI 调用`、`GitHub 更新`、`后端同步`）
+  /// 来源（如 `AI 调用 · 知识点整理`、`GitHub 更新`、`后端同步`）
   final String source;
 
   /// ISO8601 时间
@@ -34,8 +35,12 @@ class FaultLog {
   /// HTTP 状态码或其字符串；网络层错误为 `-1`
   final String code;
 
-  /// 中文错误概要
+  /// 中文错误概要（列表展示用，保持简洁）
   final String summary;
+
+  /// 原始故障返回信息（API 英文原文 + 模型/组合上下文），
+  /// 点击单条或复制时使用，便于真正定位问题。
+  final String detail;
 
   String get timeText {
     final d = timestamp.toLocal();
@@ -50,6 +55,7 @@ class FaultLog {
         'timestamp': timestamp.toIso8601String(),
         'code': code,
         'summary': summary,
+        'detail': detail,
       };
 
   factory FaultLog.fromJson(Map<String, dynamic> json) => FaultLog(
@@ -60,11 +66,16 @@ class FaultLog {
                 DateTime.now(),
         code: (json['code'] ?? '0').toString(),
         summary: (json['summary'] ?? '').toString(),
+        detail: (json['detail'] ?? '').toString(),
       );
 
-  /// 复制用的单行文本（便于粘贴到反馈）
-  String toClipboardText() =>
-      '[$timeText] [$source] HTTP $code $summary';
+  /// 复制用的文本：单行概要 + 原始故障返回信息（便于粘贴后真正定位问题）
+  String toClipboardText() {
+    final line = '[$timeText] [$source] HTTP $code $summary';
+    final d = detail.trim();
+    if (d.isEmpty) return line;
+    return '$line\n详细：$d';
+  }
 }
 
 /// 故障码记录单例。AI / 更新 / 后端各服务在故障时调用 [FaultLogService.instance.record]，
@@ -104,10 +115,12 @@ class FaultLogService extends ChangeNotifier {
   }
 
   /// 记录一条故障。fire-and-forget 持久化，随后通知刷新。
+  /// [summary] 为中文概要（列表展示）；[detail] 为原始故障返回信息（点击/复制用）。
   void record({
     required String source,
     required String code,
     required String summary,
+    String detail = '',
   }) {
     final log = FaultLog(
       id: '${DateTime.now().microsecondsSinceEpoch}',
@@ -115,6 +128,7 @@ class FaultLogService extends ChangeNotifier {
       timestamp: DateTime.now(),
       code: code,
       summary: summary,
+      detail: detail,
     );
     _logs.insert(0, log);
     if (_logs.length > _maxLogs) {
