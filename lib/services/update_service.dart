@@ -165,10 +165,12 @@ class UpdateService {
   AppUpdateInfo _parseRelease(Map<String, dynamic> r) {
     final tag = (r['tag_name'] ?? '').toString();
     final assets = (r['assets'] as List<dynamic>?) ?? const [];
+    // Windows 桌面版匹配 .exe 安装器，其余平台匹配 .apk
+    final ext = Platform.isWindows ? '.exe' : '.apk';
     String apkUrl = '';
     int apkSize = 0;
     for (final a in assets) {
-      if (a is Map && (a['name'] ?? '').toString().toLowerCase().endsWith('.apk')) {
+      if (a is Map && (a['name'] ?? '').toString().toLowerCase().endsWith(ext)) {
         if (apkUrl.isEmpty) {
           apkUrl = (a['browser_download_url'] ?? '').toString();
           apkSize = (a['size'] as num?)?.toInt() ?? 0;
@@ -221,13 +223,15 @@ class UpdateService {
     return latest;
   }
 
-  /// 下载 APK 到缓存目录（返回本地路径），带进度回调。
+  /// 下载更新包到缓存目录（返回本地路径），带进度回调。
+  /// Windows 下载 .exe 安装器；Android 下载 .apk。
   Future<String> downloadApk(
     String url, {
     void Function(int received, int total)? onProgress,
   }) async {
     final dir = await getTemporaryDirectory();
-    final dest = p.join(dir.path, 'stdeel_update_${DateTime.now().millisecondsSinceEpoch}.apk');
+    final ext = Platform.isWindows ? '.exe' : '.apk';
+    final dest = p.join(dir.path, 'stdeel_update_${DateTime.now().millisecondsSinceEpoch}$ext');
     try {
       await _dio.download(
         url,
@@ -251,7 +255,9 @@ class UpdateService {
       );
       throw '更新包下载失败：${_zhDownloadMessage(e)}';
     }
-    if (!File(dest).existsSync()) throw '下载失败：未生成 APK 文件';
+    if (!File(dest).existsSync()) {
+      throw '下载失败：未生成 ${Platform.isWindows ? '安装器' : 'APK'} 文件';
+    }
     return dest;
   }
 
@@ -269,9 +275,17 @@ class UpdateService {
     return code != null ? 'HTTP $code' : (e.message ?? '未知错误');
   }
 
-  /// 触发系统安装器安装（原生 MethodChannel）。
-  /// 需用户授权"安装未知来源应用"。
+  /// 触发安装：Android 用原生 MethodChannel 拉起系统安装器（需用户授权
+  /// "安装未知来源应用"）；Windows 直接启动下载的 .exe 安装器进程。
   Future<void> installApk(String path) async {
+    if (Platform.isWindows) {
+      try {
+        await Process.start(path, const [], mode: ProcessStartMode.detached);
+        return;
+      } catch (e) {
+        throw '启动安装器失败：$e';
+      }
+    }
     try {
       await _channel.invokeMethod<void>('installApk', {'path': path});
     } on PlatformException catch (e) {

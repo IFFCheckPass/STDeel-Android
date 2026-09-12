@@ -1,0 +1,56 @@
+# 思谛 STDeel — Windows 桌面版构建与安装器打包
+# 触发：push 到 feature/windows-support，或手动 workflow_dispatch
+# 产物：stdeel-setup-<版本号>.exe（Inno Setup 安装器）
+name: build-windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/windows-support
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: 启用 Windows 桌面支持
+        run: flutter config --enable-windows-desktop
+
+      - name: 拉取依赖
+        run: flutter pub get
+
+      - name: 构建 Windows Release
+        run: flutter build windows --release
+
+      - name: 安装 Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: 读取版本号并打包安装器
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
+          Write-Host "打包版本: $ver"
+          iscc /DMyAppVersion=$ver scripts/windows_installer.iss
+          Get-ChildItem build/windows/installer/ | Select-Object Name, Length
+
+      - name: 上传安装器产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: stdeel-windows-installer
+          path: build/windows/installer/stdeel-setup-*.exe
+          if-no-files-found: error
