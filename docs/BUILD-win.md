@@ -82,3 +82,14 @@ gh release upload v<版本号> --repo IFFCheckPass/STDeel stdeel-setup-<版本�
 - **发布**：`gh release upload v0.7.1 stdeel-setup-0.7.1.exe`（与 `app-0.7.1.apk` 同一 Pre-Release；0.7.1 < 1.0.0 → Pre-Release）。
   - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.1
 - **收尾**：删除本地下载副本，保持工作区干净。
+
+### v0.7.2（✅ 已成功构建并发布 Windows 安装器）
+- **版本**：`pubspec.yaml version: 0.7.2+19`（与 Android 版一致）。
+- **本次功能**：
+  1. **大屏侧边导航**（`home_screen.dart`）：窗口宽度 ≥720dp 时底部 `NavigationBar` 改为左侧 `NavigationRail`（默认窗口 1280×720 即触发），与平板 APK 同一代码。
+  2. **应用内更新下载修复**（`settings_screen.dart` + `update_service.dart`）：下载与进度对话框并行启动（旧逻辑下载从未开始，恒 0%）；下载客户端独立化（浏览器 UA）+ 短超时重试，Windows 端 `.exe` 安装器下载更稳。
+- **构建**：push 到 `feature/windows-support` 自动触发 `build-windows` workflow（run 34682802415），约 **5m** 成功。
+- **安装器**：`stdeel-setup-0.7.2.exe`，20.4MB。
+- **发布**：`gh release upload v0.7.2 stdeel-setup-0.7.2.exe`（与 `app-0.7.2.apk` 同一 Pre-Release）。
+  - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.2
+- **收尾**：删除本地下载副本，保持工作区干净。
