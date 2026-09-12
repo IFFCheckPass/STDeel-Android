@@ -24,7 +24,7 @@ dependencies:
   image_picker: ^1.0.7
 
   # 文件选择（答案库导入 PDF/Word 等）
-  file_picker: ^8.0.0
+  file_picker: ^10.3.10
 
   # 文档解析：PDF 渲染为图片（扫描件/版面识别走多模态），docx 解压提取文本
   pdfx: ^2.6.0
