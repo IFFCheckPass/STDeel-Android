@@ -1,10 +1,14 @@
 ; 思谛 STDeel — Windows 安装器（Inno Setup）
-; 用法：iscc /DMyAppVersion=0.7.0 scripts/windows_installer.iss
+; 用法：iscc /DMyAppVersion=0.7.0 /DReleaseDir="<绝对路径>" scripts/windows_installer.iss
 ; 源码目录：build/windows/x64/runner/Release/（flutter build windows --release 产物）
 ; 输出：build/windows/installer/stdeel-setup-<版本号>.exe
 
 #ifndef MyAppVersion
   #define MyAppVersion "0.7.0"
+#endif
+
+#ifndef ReleaseDir
+  #define ReleaseDir "..\..\build\windows\x64\runner\Release"
 #endif
 
 #define MyAppName "思谛 STDeel"
@@ -38,7 +42,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; 全部 Release 产物（exe + dll + flutter_assets + data）
-Source: "..\..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#ReleaseDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
