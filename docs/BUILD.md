@@ -224,6 +224,21 @@ rm -f android/upload-keystore.jks android/key.properties
   - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.2
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.7.2.apk`，保持 `main` 干净。
 
+### v0.7.3（✅ 已成功编译并发布，小版本更新：0.7.2 → c 位 +1）
+- **版本**：`pubspec.yaml version: 0.7.3+20`；`settings_screen.dart` 底部文案 `v0.7.3`。
+- **本次修复/功能**（对应 App 端故障码：知识点分类时报 `HTTP 400 temperature only 1 is allow`）：
+  1. **知识点 AI 整理 temperature 修复**：`ai_service.dart` 的 `generateRaw` 的 `temperature` 改为可选参数（`double? temperature`，`null` 时不发送该字段，由 API 使用默认值，同解题流式做法）；`knowledge_screen.dart` 的 `_aiOrganize` 调用不再传 temperature，避免部分推理模型只允许 `temperature=1` 时报 400。
+  2. **故障码记录增强**（`fault_log_service.dart` / `settings_screen.dart` / `ai_service.dart`）：
+     - `FaultLog` 新增 `detail` 字段：保存**原始故障返回信息**（API 英文原文 + 模型组合上下文），`toClipboardText()` 复制时输出「单行概要 + 详细：原始信息」，`toJson/fromJson` 同步持久化。
+     - 设置页故障码列表点击单条 → 屏幕中间 `AlertDialog` 弹窗显示原始返回信息（`SelectableText` 可选中），提供「复制本条」（复制完整原始信息）与「关闭」。
+     - 故障码来源细化到具体功能界面：`AI 调用 · 解题`、`AI 调用 · 知识点整理`、`AI 调用 · 拆题识别`、`AI 调用 · 答案库文档拆分`、`AI 调用 · 获取模型列表`、`AI 调用 · 连通性测试`。
+     - 新增 `_zhApiError`：把 API 返回的常见英文错误翻译成中文概要（temperature 不支持、额度不足、API Key 无效、限流、上下文超长、模型不存在、内容被拦截、服务器内部错误等），原文保留在 detail 中。
+- **构建**：`flutter build apk --release -PsigningEnabled`，Gradle 阶段约 **76.7s**（增量热缓存）。产物 **app-release.apk 74.3MB**。
+- **签名**：`feature/signing-config` 取 jks/key.properties（不并入 main）；产物改名 `app-0.7.3.apk`。
+- **发布**：先 `git push` 源码到 `main`（commit `efcf1ac`，含角标同步），Windows 分支 push 触发 Actions 构建安装器；`gh release create v0.7.3 --prerelease` 并上传 `app-0.7.3.apk` + `stdeel-setup-0.7.3.exe`（0.7.3 < 1.0.0 → Pre-Release，双端同一 tag）。
+  - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.3
+- 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.7.3.apk`，保持 `main` 干净。
+
 ### v0.6.3（✅ 已成功编译并发布）
 - 版本：用户指定为小版本修复，回退到 `pubspec.yaml version: 0.6.3+17`；`settings_screen.dart` 底部文案与更新卡片均 `v0.6.3`。
 - **修复应用内更新"未发现任何已发布版本" bug**（`update_service.dart`）：
