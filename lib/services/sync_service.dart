@@ -203,6 +203,10 @@ class SyncService {
           'latency_ms': r.latencyMs,
           'tokens_used': r.tokensUsed,
           'matched': r.matched,
+          // 四色状态（正确/错误/疑问/重答）必须随记录上传：
+          // action_type 覆盖 solve/retry/detail/correct/wrong，
+          // user_feedback 兼容旧契约（none/correct/wrong）。
+          'action_type': r.actionType,
           'user_feedback': r.userFeedback,
           'image_path': r.imagePath,
           'subject': r.subject,
@@ -269,13 +273,24 @@ class SyncService {
         final remoteId = (row['id'] as num?)?.toInt();
         if (remoteId == null || remoteId <= 0) continue;
         if (tombstone.contains(remoteId)) continue; // 待删除：跳过回写
+        // 四色状态（正确/错误/疑问/重答）：兼容后端多种字段名回写本地，
+        // 优先 action_type，其次 status，最后 user_feedback。
+        final rawAction =
+            (row['action_type'] ?? row['status'])?.toString().trim() ?? '';
+        final rawFeedback = row['user_feedback']?.toString().trim() ?? '';
+        final isFeedback = rawFeedback == 'correct' || rawFeedback == 'wrong';
+        final actionType = rawAction.isNotEmpty
+            ? rawAction
+            : (isFeedback ? rawFeedback : 'solve');
+        final userFeedback = isFeedback ? rawFeedback : 'none';
         await _db.solveRecordDao.upsertFromBackend(
           remoteId: remoteId,
           questionText: row['question_text']?.toString() ?? '',
           answer: row['answer']?.toString() ?? '',
           solution: row['solution']?.toString() ?? '',
           // 后端未回传反馈时不默认成 correct，避免把无反馈记录误标为"正确"
-          userFeedback: row['user_feedback']?.toString() ?? 'none',
+          userFeedback: userFeedback,
+          actionType: actionType,
           knowledgePoints:
               row['knowledge_points'] is List
                   ? jsonEncode(row['knowledge_points'])
