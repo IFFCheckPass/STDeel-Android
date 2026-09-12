@@ -212,6 +212,18 @@ rm -f android/upload-keystore.jks android/key.properties
   - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.1
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.7.1.apk`，保持 `main` 干净（旧提交 b943b3d 曾误提交过 jks/key.properties，本次随 docs 提交一并从 main 树删除）。
 
+### v0.7.2（✅ 已成功编译并发布，小版本更新：0.7.1 → c 位 +1）
+- **版本**：`pubspec.yaml version: 0.7.2+19`；`settings_screen.dart` 底部文案 `v0.7.2`。
+- **本次修复/功能**：
+  1. **应用内更新"下载永远卡在 0%"（核心 bug）**：`settings_screen.dart` 的 `_startUpdate` 旧实现先 `await showDialog`（进度对话框只有"取消"能关闭）再执行下载 → **下载代码永远不执行**，进度恒为 0%。重构为：打开对话框的瞬间即后台启动下载（进度实时回填），完成/失败后对话框自动关闭，取消用 `CancelToken` 真正中止。
+  2. **下载链路加固**（`update_service.dart`）：下载改用独立客户端（浏览器 UA、`Accept: */*`、无 GitHub API 专属头）、连接超时 10s + `receiveTimeout` 2min + 最多 3 次重试；GitHub 发布资产 302 到 CDN（release-assets.githubusercontent.com）直连偶发挂起，重试显著提升成功率（沙箱实测：三套下载策略经可达网络均 2-3s 下完 74MB）。
+  3. **大屏侧边导航**（`home_screen.dart`）：宽度 ≥720dp（平板 / Windows 窗口）时底部 `NavigationBar` 改为左侧 `NavigationRail`（含 Logo leading），小屏保持底部导航；APK 与 EXE 同一代码生效。
+- **构建**：`flutter build apk --release -PsigningEnabled`，Gradle 阶段约 **144.6s**（增量热缓存）。产物 **app-release.apk 74.3MB**。
+- **签名**：`feature/signing-config` 取 jks/key.properties（不并入 main）；`apksigner verify --print-certs` → CN=STDeel，SHA-256 `ed7379e8...`（与历史一致）。产物改名 `app-0.7.2.apk`。
+- **发布**：先 `git push` 源码到 `main`（commit `dd58f16`），Windows 分支 push 触发 Actions 构建安装器；`gh release create v0.7.2 --prerelease` 并上传 `app-0.7.2.apk` + `stdeel-setup-0.7.2.exe`（0.7.2 < 1.0.0 → Pre-Release，双端同一 tag）。
+  - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.2
+- 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.7.2.apk`，保持 `main` 干净。
+
 ### v0.6.3（✅ 已成功编译并发布）
 - 版本：用户指定为小版本修复，回退到 `pubspec.yaml version: 0.6.3+17`；`settings_screen.dart` 底部文案与更新卡片均 `v0.6.3`。
 - **修复应用内更新"未发现任何已发布版本" bug**（`update_service.dart`）：
