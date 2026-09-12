@@ -66,6 +66,14 @@ class UpdateService {
 
   final Dio _dio;
 
+  /// 下载专用客户端：与 API 检查客户端隔离。
+  ///
+  /// GitHub 发布资产会 302 到 CDN（release-assets.githubusercontent.com），
+  /// 该 CDN 对浏览器类 UA 最宽容；API 专属的 `Accept: application/vnd.github+json`
+  /// 对下载无意义且个别网络/中间设备可能对陌生头敏感，故下载不带它。
+  /// 连接超时调短（10s），避免"连接被挂起"时长时间无反馈。
+  late final Dio _downloadDio = _buildDownloadDio();
+
   static const MethodChannel _channel = MethodChannel('stdeel/updater');
 
   /// 构造带统一配置的 Dio：显式 User-Agent（GitHub 对默认/dio 的 UA 可能拒绝，403 的常见诱因）、
@@ -80,6 +88,22 @@ class UpdateService {
       },
     ));
     return dio;
+  }
+
+  /// 下载客户端：浏览器风格 UA + `Accept: */*`，跟随重定向，短连接超时。
+  static Dio _buildDownloadDio() {
+    return Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(minutes: 2),
+      sendTimeout: const Duration(seconds: 30),
+      followRedirects: true,
+      headers: const {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+            '(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+      },
+    ));
   }
 
   /// 读取当前安装版本号
@@ -226,40 +250,55 @@ class UpdateService {
 
   /// 下载更新包到缓存目录（返回本地路径），带进度回调。
   /// Windows 下载 .exe 安装器；Android 下载 .apk。
+  ///
+  /// GitHub 发布 CDN 直连偶发"连接被挂起/中断"（表现为进度长时间停在 0%），
+  /// 因此采用短连接超时（10s）+ 最多 3 次重试；取消则抛"已取消更新"。
   Future<String> downloadPackage(
     String url, {
     void Function(int received, int total)? onProgress,
+    CancelToken? cancelToken,
   }) async {
     final dir = await getTemporaryDirectory();
     final ext = Platform.isWindows ? '.exe' : '.apk';
-    final dest = p.join(dir.path, 'stdeel_update_${DateTime.now().millisecondsSinceEpoch}$ext');
-    try {
-      await _dio.download(
-        url,
-        dest,
-        onReceiveProgress: (received, total) =>
-            onProgress?.call(received, total),
-        options: Options(
-          receiveTimeout: const Duration(minutes: 2),
-          followRedirects: true,
-        ),
-      );
-    } on DioException catch (e) {
-      final code = e.response?.statusCode;
-      final zh = _zhGithubMessage(code ?? (e.type == DioExceptionType.connectionError ? null : code));
-      FaultLogService.instance.record(
-        source: 'GitHub 更新下载',
-        code: code != null ? '$code' : (e.type == DioExceptionType.connectionError ? '网络' : '未知'),
-        summary: e.type == DioExceptionType.connectionError
-            ? '下载文件网络连接失败'
-            : zh,
-      );
-      throw '更新包下载失败：${_zhDownloadMessage(e)}';
+    final dest = p.join(
+        dir.path, 'stdeel_update_${DateTime.now().millisecondsSinceEpoch}$ext');
+
+    const maxAttempts = 3;
+    Object? lastError;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (attempt > 1) {
+        await Future<void>.delayed(Duration(seconds: 2 * (attempt - 1)));
+      }
+      try {
+        await _downloadDio.download(
+          url,
+          dest,
+          onReceiveProgress: (received, total) =>
+              onProgress?.call(received, total),
+          cancelToken: cancelToken,
+        );
+        if (!File(dest).existsSync()) {
+          throw '下载失败：未生成 ${Platform.isWindows ? '安装器' : '更新包'} 文件';
+        }
+        return dest;
+      } on DioException catch (e) {
+        if (cancelToken?.isCancelled ?? false) {
+          throw '已取消更新';
+        }
+        lastError = e;
+      } catch (e) {
+        lastError = e;
+      }
     }
-    if (!File(dest).existsSync()) {
-      throw '下载失败：未生成 ${Platform.isWindows ? '安装器' : 'APK'} 文件';
-    }
-    return dest;
+
+    final err = lastError;
+    final msg = err is DioException ? _zhDownloadMessage(err) : '$err';
+    FaultLogService.instance.record(
+      source: 'GitHub 更新下载',
+      code: err is DioException ? '${err.type.name}' : '未知',
+      summary: msg,
+    );
+    throw '更新包下载失败：$msg';
   }
 
   String _zhDownloadMessage(DioException e) {
