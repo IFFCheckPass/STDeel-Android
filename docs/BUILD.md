@@ -233,9 +233,13 @@ rm -f android/upload-keystore.jks android/key.properties
      - 设置页故障码列表点击单条 → 屏幕中间 `AlertDialog` 弹窗显示原始返回信息（`SelectableText` 可选中），提供「复制本条」（复制完整原始信息）与「关闭」。
      - 故障码来源细化到具体功能界面：`AI 调用 · 解题`、`AI 调用 · 知识点整理`、`AI 调用 · 拆题识别`、`AI 调用 · 答案库文档拆分`、`AI 调用 · 获取模型列表`、`AI 调用 · 连通性测试`。
      - 新增 `_zhApiError`：把 API 返回的常见英文错误翻译成中文概要（temperature 不支持、额度不足、API Key 无效、限流、上下文超长、模型不存在、内容被拦截、服务器内部错误等），原文保留在 detail 中。
-- **构建**：`flutter build apk --release -PsigningEnabled`，Gradle 阶段约 **76.7s**（增量热缓存）。产物 **app-release.apk 74.3MB**。
+  3. **同步解题记录补发四色状态**（`sync_service.dart` / `solve_record_dao.dart`，win 端最先出现、安卓同样受影响）：
+     - `flushUnsynced` 上行补发 `action_type`（solve/retry/detail/correct/wrong），此前疑问(detail)/重答(retry) 状态在同步时丢失，只发了 `user_feedback`（none/correct/wrong）。
+     - 下行 `pullSolveRecords` 兼容 `action_type`/`status`/`user_feedback` 字段名回写本地（`upsertFromBackend` 新增 `actionType` 参数），保留四色标记与反馈状态。
+  4. **Windows 端修复**（仅 `feature/windows-support` 分支，见 `docs/BUILD-win.md`）：窗口标题 Unicode 修正（思谖→思谛）、安装器中文化、安装器图标。
+- **构建**：`flutter build apk --release -PsigningEnabled`，Gradle 阶段约 **80.6s**（增量热缓存）。产物 **app-release.apk 74.3MB**。
 - **签名**：`feature/signing-config` 取 jks/key.properties（不并入 main）；产物改名 `app-0.7.3.apk`。
-- **发布**：先 `git push` 源码到 `main`（commit `efcf1ac`，含角标同步），Windows 分支 push 触发 Actions 构建安装器；`gh release create v0.7.3 --prerelease` 并上传 `app-0.7.3.apk` + `stdeel-setup-0.7.3.exe`（0.7.3 < 1.0.0 → Pre-Release，双端同一 tag）。
+- **发布**：先 `git push` 源码到 `main`（commit `9494696`，含同步状态修复；角标同步 `efcf1ac`），Windows 分支 push 触发 Actions 构建安装器；`gh release create v0.7.3 --prerelease` 并覆盖上传 `app-0.7.3.apk`（--clobber）+ `stdeel-setup-0.7.3.exe`（0.7.3 < 1.0.0 → Pre-Release，双端同一 tag）。
   - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.3
 - 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`/tmp/app-0.7.3.apk`，保持 `main` 干净。
 
