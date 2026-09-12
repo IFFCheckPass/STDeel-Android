@@ -271,3 +271,22 @@ rm -f android/upload-keystore.jks android/key.properties
   ```
   - 注意：Flutter 3.47 下 `--delete-conflicting-outputs` 已被忽略（仅警告，不影响生成）。
 - **功能**：答案库支持"卷次+题号"认领（schema v7：新增 `answer_papers` 表，`answer_library` 加 `paper_id`/`question_no`，无题干条目 question_text/hash 允许为空）；解题侧"拆题→答案库匹配→未命中才走 AI"。
+
+### v0.7.4（✅ 已成功编译并发布，小版本更新：0.7.3 → c 位 +1）
+- **版本**：`pubspec.yaml version: 0.7.4+21`；`settings_screen.dart` 底部文案 `v0.7.4`。
+- **本次功能/修复**：
+  1. **应用图标圆角统一**：调研主流软件（微信/QQ/B站/网易云音乐/钉钉/Photoshop/DaVinci Resolve 等）图标圆角实践，确定 **20% 圆弧圆角**（Android 安全值区间、iOS squircle 兼容、主流 App 常见值）。用 PIL 脚本从母版 `assets/icon/app_icon.png` 批量生成：Android 各密度 legacy 图标（mipmap-*）、Windows 多尺寸 `app_icon.ico`（16/24/32/48/64/128/256px，手动构造 ICO 头，避免 PIL 多帧保存只落首帧的坑），四角透明处理。
+  2. **数据同步修复**（`sync_service.dart`）：
+     - 上传未拿到后端 id 时不再标记已同步（避免反馈/删除功能因本地 id 与后端不一致而失效）。
+     - 下拉回写时同步 `action_type` 与 `user_feedback` 双写（`correct/wrong` 判定兼容旧字段），确保错题查询准确。
+  3. **答案库命中记录**（`solve_provider.dart`）：插入时直接标记 `synced=true`，避免被误上传到后端。
+  4. **异步 context 安全**（`knowledge_screen.dart`）：AI 调用（最长 180s）返回后先 `if (!mounted) return` 再使用 context，修复页面退出后崩溃。
+  5. **AI 错误信息提取**（`ai_service.dart`）：兼容 `{error: string}` 与 `{message: string}` 两种错误响应形状，提升故障定位能力。
+  6. **file_picker 升级至 10.3.10**（修复 compileSdk 36 构建失败）：
+     - 根因：旧版 `file_picker 8.3.7` 写死 `compileSdk 34`，而 `flutter_plugin_android_lifecycle` 新版要求依赖方 compileSdk≥36，`checkReleaseAarMetadata` 校验失败。
+     - 历史方案（sed 改 pub-cache 插件源码）本次不再需要：10.3.10 改为 `compileSdk flutter.compileSdkVersion`，跟随 Flutter 默认 36。
+- **构建**：`flutter build apk --release -PsigningEnabled`，Gradle 阶段约 **397.4s**（依赖变更后全量重编）。产物 **app-release.apk 74.4MB**。
+- **签名**：`feature/signing-config` 分支取 `upload-keystore.jks`+`key.properties`（不并入 main）；`apksigner verify --print-certs` → CN=STDeel，SHA-256 `ed7379e83486704322dba43361dde16c307fe64f8fdabdc7e437f70eb457f933`（与历史一致）。产物改名 `app-0.7.4.apk`。
+- **发布**：先 `git push` 源码到 `main`（commit `3f6b003` 图标+bug 修复、`0fc9d9f` file_picker 升级），Windows 分支 Actions 构建安装器 `stdeel-setup-0.7.4.exe`；`gh release create v0.7.4 --prerelease` 并上传 `app-0.7.4.apk` + `stdeel-setup-0.7.4.exe`（0.7.4 < 1.0.0 → Pre-Release，双端同一 tag）。
+  - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.4
+- 收尾：删除 `android/upload-keystore.jks`、`android/key.properties`、`app-0.7.4.apk`，保持 `main` 干净。
