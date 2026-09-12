@@ -291,7 +291,9 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       final jsonText = await ai.generateRaw(
         model: models.first,
         userText: subjectPrompt,
-        temperature: 0.1,
+        // 不传 temperature：让 API 使用自身默认值（同解题做法），
+        // 避免部分模型只允许 temperature=1 时报 400。
+        source: 'AI 调用 · 知识点整理',
       );
       // 从返回文本中截取 JSON 对象；若带围栏/前导文字则由 _extractJsonObject 兜底。
       final jsonStr = _extractJsonObject(jsonText) ?? jsonText;

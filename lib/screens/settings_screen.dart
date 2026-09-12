@@ -657,7 +657,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const Spacer(),
                     Text(
-                      '版本 v0.7.2',
+                      '版本 v0.7.3',
                       style: TextStyle(fontSize: 12, color: G.textSecondary),
                     ),
                   ],
@@ -693,8 +693,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Text(
-                        'AI 调用、GitHub 更新、后端同步等环节出错时自动记录诊断信息，'
-                        '便于定位问题。展示统一为中文；可一键复制发给开发反馈。',
+                        'AI 调用、GitHub 更新、后端同步等环节出错时自动记录诊断信息。'
+                        '列表展示中文概要；点击单条可查看原始返回信息，'
+                        '一键复制（含原始返回）便于反馈定位。',
                         style: TextStyle(fontSize: 12, height: 1.5),
                       ),
                     ),
@@ -994,7 +995,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-/// 单条故障码记录卡片
+/// 单条故障码记录卡片；点击后弹窗展示原始故障返回信息
 class _FaultLogTile extends StatelessWidget {
   const _FaultLogTile({super.key, required this.log});
 
@@ -1002,47 +1003,106 @@ class _FaultLogTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: G.coral.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              '${log.code}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: G.coral,
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => _showFaultLogDetail(context, log),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: G.coral.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '${log.code}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: G.coral,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '[${log.source}] ${log.timeText}',
-                  style: TextStyle(fontSize: 11, color: G.textFaint),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  log.summary,
-                  style: const TextStyle(fontSize: 12, height: 1.4),
-                ),
-              ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '[${log.source}] ${log.timeText}',
+                    style: TextStyle(fontSize: 11, color: G.textFaint),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    log.summary,
+                    style: const TextStyle(fontSize: 12, height: 1.4),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(Icons.open_in_full_rounded,
+                  size: 14, color: G.textFaint),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+/// 屏幕中间弹出单条故障详情（含原始故障返回信息），可一键复制
+void _showFaultLogDetail(BuildContext context, FaultLog log) {
+  final full = log.toClipboardText();
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text('[${log.source}] HTTP ${log.code}'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('时间：${log.timeText}',
+                style: TextStyle(fontSize: 12, color: G.textFaint)),
+            const SizedBox(height: 8),
+            Text('概要：${log.summary}',
+                style: const TextStyle(fontSize: 13, height: 1.5)),
+            if (log.detail.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Text('原始返回信息：',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 4),
+              SelectableText(
+                log.detail,
+                style: const TextStyle(fontSize: 12.5, height: 1.6),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton.icon(
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: full));
+            Navigator.pop(ctx);
+            showGlassSnackBar(context, '已复制本条故障详情', success: true);
+          },
+          icon: const Icon(Icons.copy_rounded, size: 16),
+          label: const Text('复制本条'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('关闭'),
+        ),
+      ],
+    ),
+  );
 }
 
 /// 组合卡片（可拖动排序）

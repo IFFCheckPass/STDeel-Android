@@ -180,7 +180,8 @@ class AiService {
       thinkTimer.cancel();
       if (completer.isCompleted) return; // think 超时已处理
       fail('请求失败（${model.name}）: '
-          '${await _dioErrorText(e, comboIndex: comboIndex, model: model)}');
+          '${await _dioErrorText(e,
+              source: 'AI 调用 · 解题', comboIndex: comboIndex, model: model)}');
       return;
     } catch (e) {
       thinkTimer.cancel();
@@ -315,7 +316,11 @@ class AiService {
   }
 
   /// 从 DioException 中提取可读的错误信息（含 HTTP 状态码与响应体）。
-  /// 始终返回中文文案；同时记录一条故障码到 [FaultLogService]，便于在设置页查看/复制。
+  /// 始终返回中文文案；同时记录一条故障码到 [FaultLogService]：
+  ///  - [summary]：中文概要（列表展示，保持简洁）
+  ///  - [detail]：原始故障返回信息（API 英文原文 + 模型组合上下文），
+  ///    设置页点击单条或复制时使用，便于真正定位问题。
+  /// [source] 标明功能界面，如 `AI 调用 · 知识点整理`。
   Future<String> _dioErrorText(
     DioException e, {
     String source = 'AI 调用',
@@ -324,7 +329,7 @@ class AiService {
   }) async {
     final resp = e.response;
     if (resp != null) {
-      var msg = 'HTTP ${resp.statusCode}';
+      var raw = ''; // API 原始英文错误信息
       final data = resp.data;
       if (data is ResponseBody) {
         try {
@@ -333,51 +338,101 @@ class AiService {
             chunks.expand((c) => c).toList(growable: false),
           );
           final err = _extractApiError(text);
-          if (err != null && err.isNotEmpty) msg = 'HTTP ${resp.statusCode} $err';
+          if (err != null && err.isNotEmpty) raw = err;
         } catch (_) {/* 忽略读取失败 */}
       } else if (data is Map && data['error'] is Map) {
         final m = (data['error'] as Map)['message'];
-        if (m != null) msg = 'HTTP ${resp.statusCode} $m';
+        if (m != null) raw = '$m';
       }
-      // 记录故障码，供设置页展示/复制；文案统一为中文。
-      final cn = _zhHttpMessage(resp.statusCode);
-      // 429 额外带上模型组合序号、供应商与模型名，便于用户直观定位是哪家限流。
+      final statusCode = resp.statusCode ?? 0;
+      final base = _zhHttpMessage(statusCode);
+      // 把 API 原始英文错误翻译成中文概要（如 temperature 报错 → 中文说明）
+      final apiCn = _zhApiError(raw);
       final comboContext = _comboContext(comboIndex: comboIndex, model: model);
+      final summary = _trimCn(base +
+          (apiCn.isNotEmpty ? '：$apiCn' : '') +
+          (statusCode == 429 && comboContext.isNotEmpty
+              ? '（$comboContext）'
+              : ''));
+      // 详细：原始返回信息 + 模型组合上下文（复制/点击时展示）
+      final detail = _trimCn([
+        if (raw.isNotEmpty) '原始返回：$raw',
+        if (comboContext.isNotEmpty) comboContext,
+      ].join('\n'));
       FaultLogService.instance.record(
         source: source,
-        code: '${resp.statusCode}',
-        summary: _trimCn(cn +
-            (resp.statusCode == 404 &&
-                    (msg.contains('api.github.com') || msg.contains('github'))
-                ? '（GitHub 资源/版本不存在或已被限制访问）'
-                : '') +
-            (resp.statusCode == 429 && comboContext.isNotEmpty
-                ? '（$comboContext）'
-                : '')),
+        code: '$statusCode',
+        summary: summary,
+        detail: detail,
       );
-      if (resp.statusCode == 404 || resp.statusCode == 403 || resp.statusCode == 429) {
-        return 'HTTP ${resp.statusCode} $cn';
-      }
-      return msg;
+      return 'HTTP $statusCode $summary';
     }
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        FaultLogService.instance.record(source: source, code: '超时', summary: '网络连接超时');
+        FaultLogService.instance.record(
+            source: source, code: '超时', summary: '网络连接超时', detail: '连接超时');
         return '连接超时';
       case DioExceptionType.connectionError:
-        FaultLogService.instance.record(source: source, code: '网络', summary: '无法连接服务器');
+        FaultLogService.instance.record(
+            source: source,
+            code: '网络',
+            summary: '无法连接服务器',
+            detail: '无法连接服务器（请检查网络或 Base URL）');
         return '无法连接服务器（请检查网络或 Base URL）';
       case DioExceptionType.badCertificate:
-        FaultLogService.instance.record(source: source, code: '证书', summary: '证书校验失败');
+        FaultLogService.instance.record(
+            source: source, code: '证书', summary: '证书校验失败', detail: '证书校验失败');
         return '证书校验失败';
       case DioExceptionType.cancel:
         return '请求已取消';
       default:
-        FaultLogService.instance.record(source: source, code: '未知', summary: '${e.message ?? e.type.name}');
+        FaultLogService.instance.record(
+            source: source,
+            code: '未知',
+            summary: '${e.message ?? e.type.name}',
+            detail: '${e.message ?? e.type.name}');
         return '网络请求异常（${e.message ?? e.type.name}）';
     }
+  }
+
+  /// 把 API 返回的常见英文错误翻译成中文概要；无法识别的返回空串
+  /// （此时概要只显示 HTTP 状态码中文，原文保留在 detail 中）。
+  String _zhApiError(String raw) {
+    final s = raw.toLowerCase();
+    if (s.isEmpty) return '';
+    if (s.contains('temperature')) return 'temperature 参数不被该模型支持（仅允许默认值）';
+    if (s.contains('insufficient_quota') || s.contains('quota')) return '账户额度不足';
+    if (s.contains('invalid api key') ||
+        s.contains('unauthorized') ||
+        s.contains('authentication') ||
+        s.contains('apikey')) {
+      return 'API Key 无效或认证失败';
+    }
+    if (s.contains('rate limit') || s.contains('too many requests')) {
+      return '触发限流';
+    }
+    if (s.contains('context length') ||
+        s.contains('maximum context') ||
+        s.contains('context_window') ||
+        s.contains('tokens')) {
+      return '超出上下文长度限制';
+    }
+    if (s.contains('model') &&
+        (s.contains('not exist') ||
+            s.contains('not found') ||
+            s.contains('does not exist') ||
+            s.contains('not support'))) {
+      return '模型不存在或无权访问';
+    }
+    if (s.contains('content filter') || s.contains('safety')) {
+      return '内容被安全策略拦截';
+    }
+    if (s.contains('server error') || s.contains('internal error')) {
+      return '服务器内部错误';
+    }
+    return '';
   }
 
   /// HTTP 状态码 → 中文说明（故障展示统一中文）
@@ -515,8 +570,12 @@ class AiService {
     required AiModelConfig model,
     required String userText,
     List<String> imageDataUrls = const [],
-    double temperature = 0.2,
+    // null = 不发送 temperature，让 API 使用自身默认值（同解题流式做法），
+    // 避免部分模型（如只允许 temperature=1 的推理模型）报 400。
+    double? temperature,
     int timeoutSeconds = 180,
+    // 故障码记录来源（功能界面），如 `AI 调用 · 知识点整理`
+    String source = 'AI 调用',
   }) async {
     final url = '${model.endpoint}/chat/completions';
     final messages = <Map<String, dynamic>>[
@@ -541,7 +600,7 @@ class AiService {
       'model': model.model,
       'messages': messages,
       'stream': false,
-      'temperature': temperature,
+      if (temperature != null) 'temperature': temperature,
     };
     try {
       final resp = await _dio.post<dynamic>(
@@ -578,7 +637,7 @@ class AiService {
       if (text.isEmpty) throw '模型未返回内容';
       return text;
     } on DioException catch (e) {
-      throw await _dioErrorText(e);
+      throw await _dioErrorText(e, source: source, model: model);
     }
   }
 
@@ -619,7 +678,7 @@ class AiService {
       ids.sort();
       return ids;
     } on DioException catch (e) {
-      throw await _dioErrorText(e);
+      throw await _dioErrorText(e, source: 'AI 调用 · 获取模型列表');
     }
   }
 
@@ -669,7 +728,7 @@ class AiService {
       return (
         ok: false,
         latencyMs: sw.elapsedMilliseconds,
-        message: await _dioErrorText(e),
+        message: await _dioErrorText(e, source: 'AI 调用 · 连通性测试'),
       );
     } catch (e) {
       sw.stop();
