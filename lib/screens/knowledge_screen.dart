@@ -295,6 +295,9 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         // 避免部分模型只允许 temperature=1 时报 400。
         source: 'AI 调用 · 知识点整理',
       );
+      // AI 调用可能长达 180s，期间用户可能已退出页面；
+      // 先检查 mounted 再使用 context，避免在已卸载元素上 read 抛异常。
+      if (!mounted) return;
       // 从返回文本中截取 JSON 对象；若带围栏/前导文字则由 _extractJsonObject 兜底。
       final jsonStr = _extractJsonObject(jsonText) ?? jsonText;
       final obj = jsonDecode(jsonStr);

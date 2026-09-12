@@ -72,15 +72,17 @@ class SyncService {
       };
       final ids = await _api.uploadSolveRecord(payload);
       if (recordIds != null) {
-        // 后端按顺序返回与本次上传一一对应的 id 时才写回 remoteId，
-        // 否则保持原状（不猜测对应关系，避免错配覆盖正确记录）。
+        // 后端按顺序返回与本次上传一一对应的 id 时才写回 remoteId 并标记
+        // 已同步；否则保持未同步（synced=false），由后续 flushUnsynced 整条
+        // 补传——若在无 remoteId 时强行 markSynced，反馈/删除将永久失效，
+        // 且下拉同步会因本地 remoteId 为空而重复插入记录。
         if (ids.length == recordIds.length) {
           for (var i = 0; i < recordIds.length; i++) {
             await _db.solveRecordDao.setRemoteId(recordIds[i], ids[i]);
           }
-        }
-        for (final id in recordIds) {
-          await _db.solveRecordDao.markSynced(id);
+          for (final id in recordIds) {
+            await _db.solveRecordDao.markSynced(id);
+          }
         }
       }
     } catch (_) {
@@ -212,9 +214,13 @@ class SyncService {
           'subject': r.subject,
         });
         // 逐条上传通常返回单个后端 id：写回 remoteId 供删除/反馈使用。
-        if (ids.length == 1) {
-          await _db.solveRecordDao.setRemoteId(r.id, ids.first);
+        // 未拿到后端 id 时保持未同步，下次重试补传——否则 feedback/删除
+        // 会因本地 remoteId 为空而永久失效，下拉同步也会重复插入记录。
+        if (ids.length != 1) {
+          failed++;
+          continue;
         }
+        await _db.solveRecordDao.setRemoteId(r.id, ids.first);
       } catch (_) {
         // 网络/后端失败：保留记录待下次重试。
         failed++;
@@ -275,14 +281,22 @@ class SyncService {
         if (tombstone.contains(remoteId)) continue; // 待删除：跳过回写
         // 四色状态（正确/错误/疑问/重答）：兼容后端多种字段名回写本地，
         // 优先 action_type，其次 status，最后 user_feedback。
+        // action_type 或 user_feedback 为 correct/wrong 都视为反馈，双写
+        // 本地两字段（与本地 updateFeedback 的写法保持一致），保证
+        // 知识点页按 getByFeedback('wrong') 查询错题不漏。
         final rawAction =
             (row['action_type'] ?? row['status'])?.toString().trim() ?? '';
         final rawFeedback = row['user_feedback']?.toString().trim() ?? '';
-        final isFeedback = rawFeedback == 'correct' || rawFeedback == 'wrong';
+        final isFeedback = rawAction == 'correct' ||
+            rawAction == 'wrong' ||
+            rawFeedback == 'correct' ||
+            rawFeedback == 'wrong';
         final actionType = rawAction.isNotEmpty
             ? rawAction
             : (isFeedback ? rawFeedback : 'solve');
-        final userFeedback = isFeedback ? rawFeedback : 'none';
+        final userFeedback = isFeedback
+            ? (rawFeedback.isNotEmpty ? rawFeedback : rawAction)
+            : 'none';
         await _db.solveRecordDao.upsertFromBackend(
           remoteId: remoteId,
           questionText: row['question_text']?.toString() ?? '',
