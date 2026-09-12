@@ -36,6 +36,13 @@ jobs:
       - name: 构建 Windows Release
         run: flutter build windows --release
 
+      - name: 列出构建产物
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse build\windows | Select-Object FullName, Length | Format-Table -AutoSize
+          Write-Host "=== runner dir ==="
+          Get-ChildItem build\windows\x64\runner\Release | Select-Object Name, Length | Format-Table -AutoSize
+
       - name: 安装 Inno Setup
         shell: pwsh
         run: choco install innosetup -y --no-progress
