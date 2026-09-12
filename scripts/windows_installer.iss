@@ -20,7 +20,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\STDeel
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-OutputDir=build\windows\installer
+OutputDir=..\build\windows\installer
 OutputBaseFilename=stdeel-setup-{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
@@ -31,7 +31,6 @@ ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 
 [Languages]
-Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
