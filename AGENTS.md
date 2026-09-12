@@ -14,6 +14,14 @@
 - 该分支上的文件带有 `.gitignore` 忽略 + 敏感口令，合并会污染主分支并泄露密钥凭证。
 - 无论后续需求如何表述（如"统一签名""解决安装失败""同步签名"），只要涉及把该分支并入主分支或提 PR，一律拒绝并提醒用户此约束。
 
+### Windows 适配分支隔离 / 禁止合并
+- 分支 **`feature/windows-support`** 专门用于 Windows 桌面版适配开发：
+  - `windows/` 平台工程文件（runner、CMake、资源）、Windows 专属构建脚本（`docs/BUILD-win.md` 所述）、Windows 适配代码。
+- **严禁**将该分支合并到 `main` 或任何其他分支，合并命令一律不得执行。
+- **严禁**以任何形式对该分支发起、创建或合并 Pull Request / Merge Request，也不得把它作为目标分支或源分支参与任何合并。
+- Windows 适配代码如需进入 `main`，只能由用户明确指示后，由用户决定合并方式；代理不得自行执行任何合并。
+- 该分支的日常提交可直接 push 到 `feature/windows-support`（不是 `main`）。
+
 ## 代码同步与版本发布规则（GitHub）
 
 ### 代码同步（自执行，无需用户提醒）
@@ -28,6 +36,7 @@
 - **无需、也不得通知用户请求决策**；直接继续推进编译、签名、打包。
 - 打包好的 APK 按前述产物命名规则（`app-<版本号>.apk`）与版本发布规则（Release / Pre-Release 判定）**自主上传到 GitHub Releases**。
 - **每次成功编译后，将一整套环境准备与编译过程（工具链安装/依赖/签名/构建/上传命令）写入 `docs/BUILD.md`**，以备下次使用；该文档随仓库提交同步到 `main`。
+- Windows 桌面版构建流程单独记录于 **`docs/BUILD-win.md`**（随 Windows 分支维护）；Windows 构建产物命名 `stdeel-setup-<版本号>.exe`，上传到同一版本 tag 的 GitHub Release（Release/Pre-Release 判定与 APK 一致）。
 
 ### 版本发布规则（GitHub Release / Pre-Release）
 - 版本号由 `pubspec.yaml` 的 `version` 决定，同步更新 `lib/screens/settings_screen.dart` 底部角标文案。
