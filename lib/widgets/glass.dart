@@ -68,6 +68,8 @@ class G {
     final base = ThemeData(
       brightness: brightness,
       useMaterial3: true,
+      // 双端统一使用 HarmonyOS Sans（Medium 字重）
+      fontFamily: 'HarmonyOS Sans SC',
       colorScheme: ColorScheme.fromSeed(
         seedColor: accentDeep,
         brightness: brightness,

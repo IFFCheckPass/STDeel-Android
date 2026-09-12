@@ -4,6 +4,8 @@
 /// 底部导航：首页 / 知识点统计 / 答案库 / 设置
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -163,8 +165,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 28),
                     GlassPrimaryButton(
                       icon: Icons.camera_alt_rounded,
-                      label: '拍照识题',
-                      onPressed: () => _pickImage(context, fromCamera: true),
+                      label: Platform.isWindows ? '选择图片文件' : '拍照识题',
+                      onPressed: () =>
+                          _pickImage(context, fromCamera: !Platform.isWindows),
                     ),
                     const SizedBox(height: 12),
                     GlassPrimaryButton(

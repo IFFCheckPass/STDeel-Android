@@ -7,6 +7,8 @@
 ///   - 后台解题：拍照后可切至其他应用，AI 完成后推送通知
 library;
 
+import 'dart:io';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -37,6 +39,11 @@ class NotificationService {
 
   Future<void> init() async {
     if (_initialized) return;
+    // flutter_local_notifications 暂无 Windows 实现，桌面版直接跳过
+    if (Platform.isWindows) {
+      _initialized = true;
+      return;
+    }
     const initSettings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       iOS: DarwinInitializationSettings(),
@@ -67,6 +74,7 @@ class NotificationService {
     int id = 0,
   }) async {
     if (!_initialized) await init();
+    if (Platform.isWindows) return; // Windows 无通知实现，静默跳过
     await _plugin.show(
       id,
       title,
