@@ -7,6 +7,9 @@
 /// 所有保存/测试操作均有 SnackBar 反馈。
 library;
 
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -140,65 +143,122 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// 下载更新包并触发安装（带进度提示）
+  /// 下载更新包并触发安装。
+  ///
+  /// 修复"下载永远卡在 0%"：旧实现先 `await showDialog`（进度对话框），
+  /// 而该对话框只有"取消"能关闭 → 下载代码在对话框关闭前永远不会执行，
+  /// 进度只能停在 0%。现在下载与对话框**并行启动**：打开对话框的瞬间即开始
+  /// 下载，进度实时回填；完成/失败后对话框自动关闭，用户也可随时取消
+  /// （CancelToken 真正中止下载）。
   Future<void> _startUpdate(AppUpdateInfo info) async {
     if (info.pkgUrl.isEmpty) {
       if (!mounted) return;
       showGlassSnackBar(context, '该版本未附带更新包', error: true);
       return;
     }
-    // 进度对话框
+    final update = UpdateService();
+    final cancelToken = CancelToken();
+    // null=下载中；true=成功；false=失败
     final progress = ValueNotifier<double>(0);
+    final done = ValueNotifier<bool?>(null);
+    final errorMsg = ValueNotifier<String?>(null);
+
+    // 立即启动下载（与对话框并行，进度实时回填）
+    unawaited(() async {
+      try {
+        final path = await update.downloadPackage(
+          info.pkgUrl,
+          onProgress: (received, total) =>
+              progress.value = total > 0 ? received / total : 0,
+          cancelToken: cancelToken,
+        );
+        await update.installPackage(path);
+        done.value = true;
+      } catch (e) {
+        if (cancelToken.isCancelled) return; // 用户取消，静默退出
+        errorMsg.value = '$e';
+        done.value = false;
+      }
+    }());
+
     final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('正在下载更新…'),
-        content: ValueListenableBuilder<double>(
-          valueListenable: progress,
-          builder: (ctx, v, _) {
-            final pct = (v * 100).toStringAsFixed(0);
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                LinearProgressIndicator(value: v > 0 ? v : null),
-                const SizedBox(height: 10),
-                Text('$pct%',
-                    style: const TextStyle(fontSize: 13)),
-              ],
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-        ],
+      builder: (ctx) => ValueListenableBuilder<bool?>(
+        valueListenable: done,
+        builder: (ctx, v, _) {
+          // 下载完成/失败：下一帧自动关闭对话框
+          if (v != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (ctx.mounted) Navigator.pop(ctx, v);
+            });
+          }
+          final error = errorMsg.value;
+          return AlertDialog(
+            title: Text(
+              v == null
+                  ? '正在下载更新…'
+                  : (v == true ? '下载完成' : '下载失败'),
+            ),
+            content: v == null
+                ? ValueListenableBuilder<double>(
+                    valueListenable: progress,
+                    builder: (ctx, p, _) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        LinearProgressIndicator(value: p > 0 ? p : null),
+                        const SizedBox(height: 10),
+                        Text(
+                          '${(p * 100).toStringAsFixed(0)}%',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  )
+                : Text(
+                    v == true
+                        ? '已下载更新包，即将拉起安装器。'
+                        : '更新失败：$error',
+                    style: const TextStyle(fontSize: 13, height: 1.6),
+                  ),
+            actions: [
+              if (v == null)
+                TextButton(
+                  onPressed: () {
+                    cancelToken.cancel();
+                    Navigator.pop(ctx, false);
+                  },
+                  child: const Text('取消'),
+                )
+              else
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, v),
+                  child: const Text('确定'),
+                ),
+            ],
+          );
+        },
       ),
     );
-    if (ok == false || !mounted) return; // 用户取消
 
-    try {
-      final update = UpdateService();
-      final path = await update.downloadPackage(
-        info.pkgUrl,
-        onProgress: (received, total) =>
-            progress.value = total > 0 ? received / total : 0,
-      );
-      if (!mounted) return;
-      await update.installPackage(path);
-      if (!mounted) return;
+    final err = errorMsg.value;
+    progress.dispose();
+    done.dispose();
+    errorMsg.dispose();
+
+    if (!mounted) return;
+    if (ok == true) {
       showGlassSnackBar(
         context,
         '已下载并拉起安装器，请按系统提示完成安装（若提示未知来源，请先授权）',
         success: true,
       );
-    } catch (e) {
-      if (!mounted) return;
-      showGlassSnackBar(context, '更新失败：$e', error: true);
-    } finally {
-      progress.dispose();
+    } else if (ok == false) {
+      showGlassSnackBar(
+        context,
+        err == null ? '已取消更新' : '更新失败：$err',
+        error: err != null,
+      );
     }
   }
 
@@ -597,7 +657,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const Spacer(),
                     Text(
-                      '版本 v0.7.1',
+                      '版本 v0.7.2',
                       style: TextStyle(fontSize: 12, color: G.textSecondary),
                     ),
                   ],
