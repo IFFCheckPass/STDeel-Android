@@ -1,7 +1,7 @@
 name: stdeel
 description: 思谛 STDeel - 拍照识题与 AI 解题学习软件
 publish_to: 'none'
-version: 0.7.0+17
+version: 0.7.1+18
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
@@ -74,6 +74,11 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+
+  fonts:
+    - family: HarmonyOS Sans SC
+      fonts:
+        - asset: assets/fonts/HarmonyOS_Sans_SC_Medium.ttf
 
   assets:
     - assets/icon/

@@ -19,16 +19,16 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 // 应用内更新：用 FileProvider 暴露已下载的 APK 并拉起系统安装器
-                "installApk" -> {
+                "installPackage" -> {
                     val path = call.argument<String>("path") ?: ""
-                    installApk(this, path, result)
+                    installPackage(this, path, result)
                 }
                 else -> result.notImplemented()
             }
         }
     }
 
-    private fun installApk(activity: Activity, path: String, result: MethodChannel.Result) {
+    private fun installPackage(activity: Activity, path: String, result: MethodChannel.Result) {
         try {
             val file = File(path)
             if (!file.exists()) {

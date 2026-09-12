@@ -109,7 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Text(
                 '当前版本：$currentVersion\n'
                 '新版本：${info.version}\n'
-                '${info.apkUrl.isEmpty ? '' : '包体：${info.humanApkSize}'}',
+                '${info.pkgUrl.isEmpty ? '' : '包体：${info.humanPkgSize}'}',
                 style: const TextStyle(fontSize: 13, height: 1.6),
               ),
               if (info.notes.trim().isNotEmpty) ...[
@@ -140,11 +140,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// 下载 APK 并触发安装（带进度提示）
+  /// 下载更新包并触发安装（带进度提示）
   Future<void> _startUpdate(AppUpdateInfo info) async {
-    if (info.apkUrl.isEmpty) {
+    if (info.pkgUrl.isEmpty) {
       if (!mounted) return;
-      showGlassSnackBar(context, '该版本未附带 APK 安装包', error: true);
+      showGlassSnackBar(context, '该版本未附带更新包', error: true);
       return;
     }
     // 进度对话框
@@ -181,13 +181,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       final update = UpdateService();
-      final path = await update.downloadApk(
-        info.apkUrl,
+      final path = await update.downloadPackage(
+        info.pkgUrl,
         onProgress: (received, total) =>
             progress.value = total > 0 ? received / total : 0,
       );
       if (!mounted) return;
-      await update.installApk(path);
+      await update.installPackage(path);
       if (!mounted) return;
       showGlassSnackBar(
         context,
@@ -597,14 +597,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const Spacer(),
                     Text(
-                      '版本 v0.7.0',
+                      '版本 v0.7.1',
                       style: TextStyle(fontSize: 12, color: G.textSecondary),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '从 GitHub 拉取最新 Release，检查到新版本后自动下载 APK 并拉起系统安装器。',
+                  '从 GitHub 拉取最新 Release，检查到新版本后自动下载更新包并拉起系统安装器。',
                   style: TextStyle(fontSize: 12, color: G.textFaint, height: 1.5),
                 ),
                 const SizedBox(height: 12),

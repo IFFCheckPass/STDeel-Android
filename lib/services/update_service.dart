@@ -1,8 +1,9 @@
 /// 应用内更新服务 - 思谛 STDeel
 ///
-/// 从 GitHub Releases（`IFFCheckPass/STDeel-Android`）拉取最新版本：
+/// 从 GitHub Releases（`IFFCheckPass/STDeel`）拉取最新版本：
 ///  - 对比本地安装版本，判断是否有新版本
-///  - 下载对应 APK 并调用系统安装器安装（原生 MethodChannel 触发）
+///  - 下载对应更新包并触发安装（Windows 为 .exe 安装器，Android 为 .apk，
+///    原生 MethodChannel 触发系统安装器）
 library;
 
 import 'dart:io';
@@ -17,7 +18,7 @@ import 'fault_log_service.dart';
 
 /// GitHub 仓库（Release 源）
 const String kUpdateRepoOwner = 'IFFCheckPass';
-const String kUpdateRepoName = 'STDeel-Android';
+const String kUpdateRepoName = 'STDeel';
 
 /// 拉取的远端版本信息
 class AppUpdateInfo {
@@ -25,8 +26,8 @@ class AppUpdateInfo {
     required this.version,
     required this.tagName,
     required this.url,
-    required this.apkUrl,
-    required this.apkSize,
+    required this.pkgUrl,
+    required this.pkgSize,
     required this.notes,
     required this.publishedAt,
   });
@@ -40,23 +41,23 @@ class AppUpdateInfo {
   /// Release 页面链接
   final String url;
 
-  /// APK 直链
-  final String apkUrl;
+  /// 更新包直链（Windows 为 .exe 安装器，Android 为 .apk）
+  final String pkgUrl;
 
-  /// APK 大小（字节）
-  final int apkSize;
+  /// 更新包大小（字节）
+  final int pkgSize;
 
   /// Release 说明
   final String notes;
 
   final String publishedAt;
 
-  bool get hasApk => apkUrl.isNotEmpty;
+  bool get hasPkg => pkgUrl.isNotEmpty;
 
-  String get humanApkSize {
-    if (apkSize <= 0) return '';
-    if (apkSize < 1024 * 1024) return '${(apkSize / 1024).toStringAsFixed(0)} KB';
-    return '${(apkSize / (1024 * 1024)).toStringAsFixed(1)} MB';
+  String get humanPkgSize {
+    if (pkgSize <= 0) return '';
+    if (pkgSize < 1024 * 1024) return '${(pkgSize / 1024).toStringAsFixed(0)} KB';
+    return '${(pkgSize / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
 
@@ -167,13 +168,13 @@ class UpdateService {
     final assets = (r['assets'] as List<dynamic>?) ?? const [];
     // Windows 桌面版匹配 .exe 安装器，其余平台匹配 .apk
     final ext = Platform.isWindows ? '.exe' : '.apk';
-    String apkUrl = '';
-    int apkSize = 0;
+    String pkgUrl = '';
+    int pkgSize = 0;
     for (final a in assets) {
       if (a is Map && (a['name'] ?? '').toString().toLowerCase().endsWith(ext)) {
-        if (apkUrl.isEmpty) {
-          apkUrl = (a['browser_download_url'] ?? '').toString();
-          apkSize = (a['size'] as num?)?.toInt() ?? 0;
+        if (pkgUrl.isEmpty) {
+          pkgUrl = (a['browser_download_url'] ?? '').toString();
+          pkgSize = (a['size'] as num?)?.toInt() ?? 0;
         }
       }
     }
@@ -181,8 +182,8 @@ class UpdateService {
       version: tag.replaceFirst(RegExp(r'^v'), ''),
       tagName: tag,
       url: (r['html_url'] ?? '').toString(),
-      apkUrl: apkUrl,
-      apkSize: apkSize,
+      pkgUrl: pkgUrl,
+      pkgSize: pkgSize,
       notes: (r['body'] ?? '').toString(),
       publishedAt: (r['published_at'] ?? '').toString(),
     );
@@ -225,7 +226,7 @@ class UpdateService {
 
   /// 下载更新包到缓存目录（返回本地路径），带进度回调。
   /// Windows 下载 .exe 安装器；Android 下载 .apk。
-  Future<String> downloadApk(
+  Future<String> downloadPackage(
     String url, {
     void Function(int received, int total)? onProgress,
   }) async {
@@ -277,7 +278,7 @@ class UpdateService {
 
   /// 触发安装：Android 用原生 MethodChannel 拉起系统安装器（需用户授权
   /// "安装未知来源应用"）；Windows 直接启动下载的 .exe 安装器进程。
-  Future<void> installApk(String path) async {
+  Future<void> installPackage(String path) async {
     if (Platform.isWindows) {
       try {
         await Process.start(path, const [], mode: ProcessStartMode.detached);
@@ -287,7 +288,7 @@ class UpdateService {
       }
     }
     try {
-      await _channel.invokeMethod<void>('installApk', {'path': path});
+      await _channel.invokeMethod<void>('installPackage', {'path': path});
     } on PlatformException catch (e) {
       throw '安装失败：${e.message ?? e.code}';
     }
