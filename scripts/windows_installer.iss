@@ -11,6 +11,14 @@
   #define ReleaseDir "..\..\build\windows\x64\runner\Release"
 #endif
 
+#ifndef ChineseMessages
+  #define ChineseMessages "languages\ChineseSimplified.isl"
+#endif
+
+#ifndef SetupIcon
+  #define SetupIcon "..\windows\runner\resources\app_icon.ico"
+#endif
+
 #define MyAppName "思谛 STDeel"
 #define MyAppPublisher "STDeel"
 #define MyAppExeName "stdeel.exe"
@@ -31,11 +39,14 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+; 安装器图标（与 App 图标一致）
+SetupIconFile={#SetupIcon}
 ; 桌面快捷方式与开始菜单
 PrivilegesRequired=admin
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
+; 中文简体（messages 文件随仓库 scripts/languages 维护，workflow 以绝对路径传入）
+Name: "chinesesimplified"; MessagesFile: "{#ChineseMessages}"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"

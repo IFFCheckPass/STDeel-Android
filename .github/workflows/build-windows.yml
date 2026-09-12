@@ -52,8 +52,11 @@ jobs:
         run: |
           $ver = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
           $rel = (Resolve-Path build\windows\x64\runner\Release).Path
+          $isl = (Resolve-Path scripts\languages\ChineseSimplified.isl).Path
+          $icon = (Resolve-Path windows\runner\resources\app_icon.ico).Path
           Write-Host "打包版本: $ver  ReleaseDir: $rel"
-          iscc /DMyAppVersion=$ver "/DReleaseDir=$rel" scripts/windows_installer.iss
+          Write-Host "语言文件: $isl  图标: $icon"
+          iscc /DMyAppVersion=$ver "/DReleaseDir=$rel" "/DChineseMessages=$isl" "/DSetupIcon=$icon" scripts/windows_installer.iss
           Get-ChildItem build/windows/installer/ | Select-Object Name, Length
 
       - name: 上传安装器产物
