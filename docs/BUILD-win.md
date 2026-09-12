@@ -67,3 +67,18 @@ gh release upload v<版本号> --repo IFFCheckPass/STDeel stdeel-setup-<版本�
 - **发布**：`gh release upload v0.7.0 stdeel-setup-0.7.0.exe`（与 `app-0.7.0.apk` 同一 Pre-Release）。
   - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.0
 - **收尾**：Windows 产物上传后删除本地下载副本（`win_artifact/`），保持工作区干净。
+
+### v0.7.1（✅ 已成功构建并发布 Windows 安装器）
+- **版本**：`pubspec.yaml version: 0.7.1+18`（与 Android 版一致）。
+- **本次功能**：
+  1. 窗口标题 `windows/runner/main.cpp`：`window.Create(L"stdeel", ...)` → `L"\u601D\u8C16"`（思谛，用 Unicode 转义避免源码编码问题）。
+  2. 应用图标：用安卓端 `assets/icon/app_icon.png`（1024×1024）经 Python PIL 重新生成多尺寸 `windows/runner/resources/app_icon.ico`（16/24/32/48/64/128/256），替换 Flutter 默认图标；Runner.rc 引用路径不变。
+  3. 字体：内置 HarmonyOS Sans SC Medium 于 `assets/fonts/`，`pubspec.yaml` 注册 + 主题 `fontFamily`，Windows 端 Flutter 同样从 assets 加载，与安卓一致。
+- **构建**：push 到 `feature/windows-support` 自动触发 `build-windows` workflow，约 **4m59s** 成功（Flutter 3.47.1 windows-latest）。
+- **安装器**：`stdeel-setup-0.7.1.exe`，20.4MB（含字体 assets，比 0.7.0 的 15.4MB 大）。
+- **下载产物**（artifact → 本地 → 上传 Release）：
+  - `gh run download <run-id> -n stdeel-windows-installer -D <dir>`（代理环境下可能很慢）；
+  - 备选（更快）：`gh api repos/.../actions/artifacts/<id>/zip` 配合 `curl -L -H "Authorization: Bearer $(gh auth token)"` 直接下载 zip。
+- **发布**：`gh release upload v0.7.1 stdeel-setup-0.7.1.exe`（与 `app-0.7.1.apk` 同一 Pre-Release；0.7.1 < 1.0.0 → Pre-Release）。
+  - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.1
+- **收尾**：删除本地下载副本，保持工作区干净。
