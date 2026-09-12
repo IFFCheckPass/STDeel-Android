@@ -93,3 +93,16 @@ gh release upload v<版本号> --repo IFFCheckPass/STDeel stdeel-setup-<版本�
 - **发布**：`gh release upload v0.7.2 stdeel-setup-0.7.2.exe`（与 `app-0.7.2.apk` 同一 Pre-Release）。
   - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.2
 - **收尾**：删除本地下载副本，保持工作区干净。
+
+### v0.7.3（✅ 已成功构建并发布 Windows 安装器，含用户报告的紧急修正）
+- **版本**：`pubspec.yaml version: 0.7.3+20`（与 Android 版一致）。
+- **本次功能/修复**：
+  1. **窗口标题 Unicode 修正**（`windows/runner/main.cpp`）：`L"\u601D\u8C16"`（误为"思谖"）→ `L"\u601D\u8C1B"`（正确"思谛"）。谛 = U+8C1B，此前写错成 U+8C16（谖）。
+  2. **安装器图标**（`scripts/windows_installer.iss`）：新增 `SetupIconFile={#SetupIcon}`，workflow 以绝对路径传入 `windows\runner\resources\app_icon.ico`（与 App 图标一致），替换 Inno Setup 默认图标。App 图标资源本身早已正确（Runner.rc `IDI_APP_ICON` + `win32_window.cpp` LoadIcon）。
+  3. **安装器中文化**：新增 `scripts/languages/ChineseSimplified.isl`（Inno Setup 官方仓库 `Files/Languages/ChineseSimplified.isl`，417 行，6.5.0+）；`[Languages]` 从 `compiler:Default.isl`（英文）改为 `chinesesimplified`（绝对路径传入）。注意 choco 版 Inno Setup 不随包提供中文 isl，故随仓库维护。
+  4. **同步补发四色状态**（`lib/services/sync_service.dart` + `solve_record_dao.dart`，双端共享）：上行补发 `action_type`（solve/retry/detail/correct/wrong），疑问(detail)/重答(retry) 状态此前丢失；下行兼容 `action_type`/`status`/`user_feedback` 回写。
+- **构建**：push 到 `feature/windows-support`（commit `0ccf7a6`）自动触发 `build-windows` workflow（run 34685069774），约 **4m26s** 成功；iscc 编译 10.8s，`Parsing [Languages] section` 中文段解析通过。
+- **安装器**：`stdeel-setup-0.7.3.exe`，20.6MB。
+- **发布**：`gh release upload v0.7.3 stdeel-setup-0.7.3.exe --clobber`（与 `app-0.7.3.apk` 同一 Pre-Release）。
+  - 链接：https://github.com/IFFCheckPass/STDeel/releases/tag/v0.7.3
+- **收尾**：删除本地下载副本，保持工作区干净。
